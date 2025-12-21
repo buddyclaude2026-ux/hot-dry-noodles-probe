@@ -1,0 +1,50 @@
+services:
+  heihei-core:
+    image: python:3.9-slim
+    container_name: heihei-core
+    restart: always
+    working_dir: /app
+    volumes:
+      # Mount current directory to /app so main.py is visible
+      - .:/app
+    ports:
+      - "127.0.0.1:8081:8081" # Bind to localhost for secure Agent access
+    environment:
+      - PORT=${PORT:-8081}
+    command: sh -c "pip install --no-cache-dir -r requirements.txt && python3 main.py"
+
+  heihei-agent:
+    image: python:3.9-slim
+    container_name: heihei-agent
+    restart: always
+    working_dir: /app
+    network_mode: "host" # Monitor Host Traffic
+    volumes:
+      - .:/app
+      - /etc/os-release:/host/etc/os-release:ro # Read Host OS version
+    # Wait for DB to be ready and read token directly from it
+    command: sh -c "apt-get update && apt-get install -y iputils-ping && pip install --no-cache-dir requests psutil && python3 web/agent.py --server http://127.0.0.1:8081/api/v1/report --db-path /app/heihei.db --name 'HostDare VPS'"
+
+  bark:
+    image: finab/bark-server
+    container_name: bark-server
+    restart: always
+    volumes:
+      - ./bark/data:/data
+
+  frps:
+    image: snowdreamtech/frps
+    container_name: frps
+    restart: always
+    network_mode: "host"
+    volumes:
+      - ./frp/frps.ini:/etc/frp/frps.ini
+    command: frps -c /etc/frp/frps.ini
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: always
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=eyJhIjoiOTQzN2RmNzQ0NjBhZDkzNGIxY2U5ZTU4ZDZiOTQ0YTgiLCJ0IjoiOThhZjUwMWQtMjg3Mi00N2EyLTg5MDAtN2RhMmQ2NjMzOGFlIiwicyI6IlpHTmtZVEJpTjJJdE5EazFZaTAwWXpjMkxXRmxaalF0TXpKaVptTmhNVFUzTURReiJ9

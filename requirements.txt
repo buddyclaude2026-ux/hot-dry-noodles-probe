@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+requests
+websockets
+aiosqlite
+psutil
+urllib3
+python-multipart
+pyotp
+qrcode
