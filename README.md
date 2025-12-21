@@ -55,7 +55,7 @@ docker run -d --name heihei-agent \
   -v /proc:/proc \
   -v /sys:/sys \
   python:3-slim \
-  /bin/sh -c "pip install psutil requests && curl -sL http://YOUR_PANEL_IP:8081/agent.py | python3 - --name 'MyVPS' --country 'us' --server 'http://YOUR_PANEL_IP:8081/api/v1/report' --token 'HEIHEI_REPORT_VX'"
+  /bin/sh -c "apt-get update && apt-get install -y iputils-ping curl && pip install psutil requests && curl -sL http://YOUR_PANEL_IP:8081/agent.py | python3 - --name 'MyVPS' --country 'us' --server 'http://YOUR_PANEL_IP:8081/api/v1/report' --token 'HEIHEI_REPORT_VX'"
 ```
 
 *注意：必须映射 (-v) `/proc` 和 `/sys`，否则无法读取宿主机的真实 CPU/内存使用率。*
