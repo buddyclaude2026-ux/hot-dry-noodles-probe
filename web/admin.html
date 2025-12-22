@@ -455,6 +455,15 @@
                             <label class="form-check-label small" for="notify-lat-cm">移动</label>
                         </div>
                     </div>
+
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="notify-rate-enable">
+                        <label class="form-check-label" for="notify-rate-enable">启用流量速率报警</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small">报警阈值 (Mbps) - 适用于闲置监控</label>
+                        <input type="number" class="form-control form-control-sm" id="notify-rate-threshold" value="30">
+                    </div>
                 </div>
                 <div class="modal-footer justify-content-between">
                     <button type="button" class="btn btn-outline-warning" onclick="testNotify()">
@@ -521,6 +530,8 @@
                     document.getElementById('notify-lat-ct').checked = data.latency_isp_ct;
                     document.getElementById('notify-lat-cu').checked = data.latency_isp_cu;
                     document.getElementById('notify-lat-cm').checked = data.latency_isp_cm;
+                    document.getElementById('notify-rate-enable').checked = data.traffic_rate_enable;
+                    document.getElementById('notify-rate-threshold').value = data.traffic_rate_threshold;
                 }
             } catch (e) { console.error("Load Notify Error", e); }
         }
@@ -538,7 +549,9 @@
                 latency_threshold: parseInt(document.getElementById('notify-lat-threshold').value) || 210,
                 latency_isp_ct: document.getElementById('notify-lat-ct').checked,
                 latency_isp_cu: document.getElementById('notify-lat-cu').checked,
-                latency_isp_cm: document.getElementById('notify-lat-cm').checked
+                latency_isp_cm: document.getElementById('notify-lat-cm').checked,
+                traffic_rate_enable: document.getElementById('notify-rate-enable').checked,
+                traffic_rate_threshold: parseInt(document.getElementById('notify-rate-threshold').value) || 30
             };
 
             try {
@@ -925,8 +938,9 @@
   --network host \\
   -v /proc:/proc \\
   -v /sys:/sys \\
+  -v /etc/os-release:/host/etc/os-release:ro \\
   python:3-slim \\
-  /bin/sh -c "apt-get update && apt-get install -y iputils-ping && pip install psutil requests && curl -sL ${host}/agent.py | python3 - --name '${name}' --country '${cc}' --server '${host}/api/v1/report' --token '${token}'"`;
+  /bin/sh -c "apt-get update && apt-get install -y iputils-ping curl && pip install psutil requests && curl -sL ${host}/agent.py | python3 - --name '${name}' --country '${cc}' --server '${host}/api/v1/report' --token '${token}'"`;
 
             document.getElementById('install-cmd-docker').value = cmdDocker;
         }

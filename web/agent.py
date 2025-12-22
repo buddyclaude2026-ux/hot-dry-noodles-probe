@@ -12,6 +12,8 @@ import sys
 SERVER_URL = "http://185.186.147.118:8081/api/v1/report"
 SECRET_TOKEN = "HEIHEI_REPORT_VX" # Low Privilege Token
 INTERVAL = 2
+PING_TIMEOUT = 3
+CACHED_IP = None
 
 # Argparse for override
 # Argparse for override
@@ -94,8 +96,8 @@ def get_ping(host):
         param = '-n' if platform.system().lower() == 'windows' else '-c'
         timeout_param = '-w' if platform.system().lower() == 'windows' else '-W'
         
-        # 1 packet, 1 second timeout
-        cmd = ['ping', param, '1', timeout_param, '1', host]
+        # 1 packet, N second timeout
+        cmd = ['ping', param, '1', timeout_param, str(PING_TIMEOUT), host]
         
         # Run
         start = time.time()
@@ -117,13 +119,25 @@ def get_status():
     # Disk
     disk = psutil.disk_usage('/')
     
-    # Network Speed (Diff)
-    net1 = psutil.net_io_counters()
+    # Network Speed (Diff - Excluding Localhost/Docker)
+    def get_network_io():
+        io = psutil.net_io_counters(pernic=True)
+        sent = 0
+        recv = 0
+        for nic, stats in io.items():
+            # Filter out Loopback, Docker Bridge, veth
+            if nic == 'lo' or 'docker' in nic or 'veth' in nic or 'br-' in nic:
+                continue
+            sent += stats.bytes_sent
+            recv += stats.bytes_recv
+        return sent, recv
+
+    s1, r1 = get_network_io()
     time.sleep(0.5)
-    net2 = psutil.net_io_counters()
+    s2, r2 = get_network_io()
     
-    sent_speed = (net2.bytes_sent - net1.bytes_sent) / 0.5
-    recv_speed = (net2.bytes_recv - net1.bytes_recv) / 0.5
+    sent_speed = (s2 - s1) / 0.5
+    recv_speed = (r2 - r1) / 0.5
     
     # Pings (CT, CU, CM)
     # Using reliable Backbone IPs to avoid DNS issues/timeouts
@@ -131,12 +145,14 @@ def get_status():
     p_cu = get_ping("219.158.3.69")     # CU Backbone (Reliable) 
     p_cm = get_ping("221.179.155.161")  # CM Backbone (BJ)
     
-    # Try Public IP
-    public_ip = ""
-    try:
-        public_ip = requests.get("http://ifconfig.me/ip", timeout=3).text.strip()
-    except:
-        pass
+    # Try Public IP (Cached)
+    global CACHED_IP
+    if not CACHED_IP:
+        try:
+             CACHED_IP = requests.get("http://ipv4.icanhazip.com", timeout=3).text.strip()
+        except:
+             pass
+    public_ip = CACHED_IP
 
     return {
         "host": socket.gethostname(), # API will overwrite with real IP for security
@@ -148,8 +164,8 @@ def get_status():
         "online": True,
         "uptime": int(time.time() - psutil.boot_time()),
         "load": psutil.getloadavg()[0] if hasattr(psutil, "getloadavg") else 0.0,
-        "network_in": net2.bytes_recv,
-        "network_out": net2.bytes_sent,
+        "network_in": int(r2),
+        "network_out": int(s2),
         "net_in_speed": int(recv_speed),
         "net_out_speed": int(sent_speed),
         "cpu": cpu,

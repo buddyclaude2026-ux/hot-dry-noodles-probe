@@ -93,6 +93,8 @@ class ServerStatus(BaseModel):
     network_out: int = 0
     net_in_speed: int = 0
     net_out_speed: int = 0
+    rate_status: str = "normal" # 'normal' or 'high'
+    last_rate_alert_ts: int = 0
     cpu: float = 0.0
     memory_total: int = 0
     memory_used: int = 0
@@ -111,6 +113,7 @@ class ServerStatus(BaseModel):
     alias: Optional[str] = None
     public_note: Optional[str] = None # e.g. Price
     expiry: Optional[str] = None 
+    display_order: int = 0 
 
 class NotificationConfig(BaseModel):
     tg_token: str
@@ -119,7 +122,10 @@ class NotificationConfig(BaseModel):
     bark_key: str
     enabled: bool
     latency_enable: bool = False
+    latency_enable: bool = False
     latency_threshold: int = 210
+    traffic_rate_enable: bool = False
+    traffic_rate_threshold: int = 30 # Mbps
 
 
 
@@ -459,6 +465,7 @@ async def get_server_list():
             s.alias = cfg.alias
             s.public_note = cfg.public_note
             s.expiry = cfg.expiry
+            s.display_order = cfg.display_order
             if cfg.country_code: s.country_code = cfg.country_code
 
         if now - s.last_seen > 15:
@@ -473,9 +480,17 @@ async def get_server_list():
         # 2. Mask IP for security
         def mask_ip(ip_str):
             if not ip_str: return ""
-            parts = ip_str.split('.')
-            if len(parts) == 4:
-                return f"{parts[0]}.{parts[1]}.*.*"
+            # IPv4
+            if '.' in ip_str:
+                parts = ip_str.split('.')
+                if len(parts) == 4:
+                    return f"{parts[0]}.{parts[1]}.*.*"
+            # IPv4
+            if '.' in ip_str:
+                parts = ip_str.split('.')
+                if len(parts) == 4:
+                    return f"{parts[0]}.{parts[1]}.*.*"
+            
             return "Hidden"
             
         real_ip = s.ip_address if s.ip_address else s.host
@@ -486,6 +501,9 @@ async def get_server_list():
         s.ip_address = masked
         
         result.append(s.model_dump())
+    
+    # Sort by display_order (Ascending: 0, 1, 2...)
+    result.sort(key=lambda x: x.get('display_order', 0))
     
     return {"result": result}
 
@@ -502,7 +520,8 @@ async def report_status(data: ServerStatus, request: Request, token: str = Heade
     if not data.hostname:
         data.hostname = data.host
 
-    client_ip = request.client.host
+    # Trust Nginx Header for IP
+    client_ip = request.headers.get("x-real-ip") or request.client.host
     if not data.ip_address: data.ip_address = client_ip
     
     # Auto-detect Country for New Servers (or if missing)
@@ -522,9 +541,20 @@ async def report_status(data: ServerStatus, request: Request, token: str = Heade
              data.country_code = real_cc
              logger.info(f"Auto-detected Country: {real_cc} for {data.ip_address}")
 
-    # Check if New Server (Log only)
+    # Check if New Server (Alert)
+    if identity_key not in server_cache:
+        logger.info(f"New Server Detected: {data.name} ({data.ip_address})")
+        # Mask IP for Notification
+        notify_ip = "Hidden" 
+        if data.ip_address and '.' in data.ip_address:
+             parts = data.ip_address.split('.')
+             if len(parts) == 4:
+                 notify_ip = f"{parts[0]}.{parts[1]}.*.*"
 
-    
+        asyncio.create_task(send_notification(
+            "🆕 新机上线", 
+            f"名称: {data.alias or data.name}\nIP: {notify_ip}\n系统: {data.os_release}\n时间: {time.strftime('%Y-%m-%d %H:%M:%S')}"
+        ))
     # If client provides a Public IP, use it. 
     # Otherwise fallback to connection IP.
     if not data.ip_address:
@@ -771,17 +801,7 @@ async def enable_2fa(req: ContentEnable2FA, token: str = Header(None, alias="Aut
 
 # --- Notification API ---
 # --- Notification API ---
-class NotificationConfig(BaseModel):
-    tg_token: str
-    tg_chat_id: str
-    bark_server: str
-    bark_key: str
-    enabled: bool
-    latency_enable: bool = False
-    latency_threshold: int = 210
-    latency_isp_ct: bool = True
-    latency_isp_cu: bool = True
-    latency_isp_cm: bool = True
+
 
 @app.get("/api/v1/settings/notify")
 async def get_notify_settings(token: str = Header(None, alias="Authorization")):
@@ -799,20 +819,7 @@ async def get_notify_settings(token: str = Header(None, alias="Authorization")):
         "latency_isp_cm": system_settings.get("notify_latency_isp_cm", "true") == "true",
     }
 
-@app.post("/api/v1/settings/notify")
-async def save_notify_settings(cfg: NotificationConfig, token: str = Header(None, alias="Authorization")):
-    if token != SECRET_TOKEN: raise HTTPException(401)
-    await save_system_setting("notify_tg_token", cfg.tg_token)
-    await save_system_setting("notify_tg_chat_id", cfg.tg_chat_id)
-    await save_system_setting("notify_bark_server", cfg.bark_server)
-    await save_system_setting("notify_bark_key", cfg.bark_key)
-    await save_system_setting("notify_enabled", "true" if cfg.enabled else "false")
-    await save_system_setting("notify_latency_enable", "true" if cfg.latency_enable else "false")
-    await save_system_setting("notify_latency_threshold", str(cfg.latency_threshold))
-    await save_system_setting("notify_latency_isp_ct", "true" if cfg.latency_isp_ct else "false")
-    await save_system_setting("notify_latency_isp_cu", "true" if cfg.latency_isp_cu else "false")
-    await save_system_setting("notify_latency_isp_cm", "true" if cfg.latency_isp_cm else "false")
-    return {"status": "ok"}
+
 
 @app.post("/api/v1/settings/notify/test")
 async def test_notify(token: str = Header(None, alias="Authorization")):
@@ -834,6 +841,8 @@ async def get_notify_settings(token: str = Header(None, alias="Authorization")):
         "latency_isp_ct": system_settings.get("notify_latency_isp_ct", "true") == "true",
         "latency_isp_cu": system_settings.get("notify_latency_isp_cu", "true") == "true",
         "latency_isp_cm": system_settings.get("notify_latency_isp_cm", "true") == "true",
+        "traffic_rate_enable": system_settings.get("notify_traffic_rate_enable") == "true",
+        "traffic_rate_threshold": int(system_settings.get("notify_traffic_rate_threshold", "30")),
     }
 
 @app.post("/api/v1/settings/notify")
@@ -849,6 +858,8 @@ async def save_notify_settings(cfg: NotificationConfig, token: str = Header(None
     await save_system_setting("notify_latency_isp_ct", "true" if cfg.latency_isp_ct else "false")
     await save_system_setting("notify_latency_isp_cu", "true" if cfg.latency_isp_cu else "false")
     await save_system_setting("notify_latency_isp_cm", "true" if cfg.latency_isp_cm else "false")
+    await save_system_setting("notify_traffic_rate_enable", "true" if cfg.traffic_rate_enable else "false")
+    await save_system_setting("notify_traffic_rate_threshold", str(cfg.traffic_rate_threshold))
     return {"status": "ok"}
 
 # --- Monitor Task (Updated) ---
@@ -864,8 +875,19 @@ async def monitor_alerts_task():
             check_ct = system_settings.get("notify_latency_isp_ct", "true") == "true"
             check_cu = system_settings.get("notify_latency_isp_cu", "true") == "true"
             check_cm = system_settings.get("notify_latency_isp_cm", "true") == "true"
+            rate_enable = system_settings.get("notify_traffic_rate_enable") == "true"
+            rate_threshold_mbps = int(system_settings.get("notify_traffic_rate_threshold", "30"))
 
             for sid, s in list(server_cache.items()):
+                # Helper for ID Masking in Notifications
+                def notify_mask_ip(ip_str):
+                    if not ip_str: return "Unknown"
+                    if '.' in ip_str:
+                         parts = ip_str.split('.')
+                         if len(parts) == 4:
+                             return f"{parts[0]}.{parts[1]}.*.*"
+                    return "Hidden"
+
                 # 1. Offline Check
                 is_offline = (now - s.last_seen) > 35
                 if is_offline:
@@ -873,13 +895,13 @@ async def monitor_alerts_task():
                         s.alert_status = 'down'
                         s.online = False
                         logger.warning(f"Server Down: {s.name or s.host}")
-                        await send_notification("🔴 服务器报警", f"服务器离线: {s.name or s.host}\nIP: {s.ip_address}\n时间: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                        await send_notification("🔴 服务器报警", f"服务器离线: {s.alias or s.name or s.host}\nIP: {notify_mask_ip(s.ip_address)}\n时间: {time.strftime('%Y-%m-%d %H:%M:%S')}")
                 else:
                     if s.alert_status == 'down':
                         s.alert_status = 'up'
                         s.online = True
                         logger.info(f"Server Up: {s.name or s.host}")
-                        await send_notification("🟢服务器恢复", f"服务器上线: {s.name or s.host}\nIP: {s.ip_address}\n时间: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                        await send_notification("🟢服务器恢复", f"服务器上线: {s.alias or s.name or s.host}\nIP: {notify_mask_ip(s.ip_address)}\n时间: {time.strftime('%Y-%m-%d %H:%M:%S')}")
                     else:
                         if s.alert_status != 'up': s.alert_status = 'up'
                 
@@ -903,14 +925,37 @@ async def monitor_alerts_task():
                                 s.latency_status = 'high'
                                 s.last_alert_ts = now
                                 logger.warning(f"High Latency: {s.name or s.host} ({max_ping}ms)")
-                                display_name = s.alias or s.name or s.host
-                                await send_notification("⚠️ 高延迟报警", f"服务器: {display_name}\n最大延迟: {max_ping}ms (阈值 {lat_threshold}ms)\n三网: CT{s.ping_189}|CU{s.ping_10010}|CM{s.ping_10086}")
+                                # Ensure display name doesn't leak IP if no alias/name
+                                safe_name = s.alias or s.name or notify_mask_ip(s.ip_address)
+                                await send_notification("⚠️ 高延迟报警", f"服务器: {safe_name}\nIP: {notify_mask_ip(s.ip_address)}\n最大延迟: {max_ping}ms (阈值 {lat_threshold}ms)\n三网: CT{s.ping_189}|CU{s.ping_10010}|CM{s.ping_10086}")
                         else:
                             if s.latency_status == 'high':
                                 s.latency_status = 'normal'
                                 # Optional: Clear throttle or send recovery?
                                 # Usually better to just resolve.
                                 logger.info(f"Latency Normal: {s.name or s.host}")
+
+                # 3. Traffic Rate Alert
+                if rate_enable and s.online:
+                    # Convert bytes/s to Mbps: * 8 / 1,000,000
+                    in_mbps = (s.net_in_speed * 8) / 1_000_000
+                    out_mbps = (s.net_out_speed * 8) / 1_000_000
+                    max_mbps = max(in_mbps, out_mbps)
+
+                    if max_mbps > rate_threshold_mbps:
+                         should_alert_rate = False
+                         if s.rate_status != 'high': should_alert_rate = True
+                         if (now - s.last_rate_alert_ts) > 600: should_alert_rate = True # 10 min cooldown
+
+                         if should_alert_rate:
+                             s.rate_status = 'high'
+                             s.last_rate_alert_ts = now
+                             logger.warning(f"High Traffic Rate: {s.name or s.host} ({max_mbps:.1f} Mbps)")
+                             safe_name = s.alias or s.name or notify_mask_ip(s.ip_address)
+                             await send_notification("🚀 异常流量报警", f"服务器: {safe_name}\nIP: {notify_mask_ip(s.ip_address)}\n当前速率: {max_mbps:.1f} Mbps (阈值 {rate_threshold_mbps} Mbps)\n方向: {'上传' if out_mbps > in_mbps else '下载'}")
+                    else:
+                        if s.rate_status == 'high':
+                            s.rate_status = 'normal'
 
         except Exception as e:
             logger.error(f"Monitor Task Error: {e}")
@@ -922,9 +967,19 @@ async def serve_agent_py():
     return HTMLResponse(content=get_agent_py_content(), media_type="text/x-python")
 
 @app.get("/install_agent.sh")
-async def serve_install_sh():
-    # Just serve the file, but we could inject if needed
-    return FileResponse("web/install_agent.sh", media_type="text/x-shellscript")
+async def serve_install_sh(request: Request):
+    try:
+        with open("web/install_agent.sh", "r") as f:
+            content = f.read()
+        
+        host = request.headers.get("host") or "localhost:8081"
+        content = content.replace("{{SERVER_HOST}}", host)
+        content = content.replace("{{AGENT_TOKEN}}", AGENT_TOKEN)
+        
+        return Response(content=content, media_type="text/x-shellscript")
+    except Exception as e:
+        logger.error(f"Install Script Error: {e}")
+        return Response(content="# Error generating script", media_type="text/plain", status_code=500)
 
 # --- Static Files ---
 # Mount static but exclude agent.py/install.sh if they collide (FastAPI order matters)

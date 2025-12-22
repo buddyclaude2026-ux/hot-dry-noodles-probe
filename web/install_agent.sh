@@ -7,9 +7,19 @@ echo "Checking environment..."
 if ! command -v python3 &> /dev/null; then
     echo "Installing Python3..."
     if command -v apt-get &> /dev/null; then
-        apt-get update && apt-get install -y python3 python3-pip
+        apt-get update && apt-get install -y python3 python3-pip curl
     elif command -v yum &> /dev/null; then
         yum install -y python3 python3-pip
+    fi
+else
+    # Ensure curl exists even if python exists
+    if ! command -v curl &> /dev/null; then
+        echo "Installing Curl..."
+        if command -v apt-get &> /dev/null; then
+            apt-get update && apt-get install -y curl
+        elif command -v yum &> /dev/null; then
+            yum install -y curl
+        fi
     fi
 fi
 
