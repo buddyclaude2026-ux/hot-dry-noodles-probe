@@ -1,30 +1,31 @@
 services:
   heihei-core:
-    image: python:3.9-slim
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: heihei-core
     restart: always
     working_dir: /app
     volumes:
-      # Mount current directory to /app so main.py is visible
       - .:/app
     ports:
-      - "127.0.0.1:8081:8081" # Bind to localhost for secure Agent access
+      - "127.0.0.1:8081:8081"
     environment:
       - PORT=${PORT:-8081}
-    command: sh -c "pip install --no-cache-dir -r requirements.txt && python3 main.py"
+      - AGENT_TOKEN=921a82d269b4268c9b298d8d844caf45
 
   heihei-agent:
-    image: python:3.9-slim
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
     container_name: heihei-agent
     restart: always
     working_dir: /app
-    network_mode: "host" # Monitor Host Traffic
+    network_mode: "host"
     volumes:
       - .:/app
-      - /etc/os-release:/host/etc/os-release:ro # Read Host OS version
-    # Wait for DB to be ready and read token directly from it
-    command: sh -c "apt-get update && apt-get install -y iputils-ping && pip install --no-cache-dir requests psutil && python3 web/agent.py --server http://127.0.0.1:8081/api/v1/report --db-path /app/heihei.db --name 'HostDare VPS'"
-
+      - /etc/os-release:/host/etc/os-release:ro
+    command: python3 web/agent.py --server http://localhost:8081/api/v1/report --token 921a82d269b4268c9b298d8d844caf45 --name 'HostDare_Cssd01'
   bark:
     image: finab/bark-server
     container_name: bark-server

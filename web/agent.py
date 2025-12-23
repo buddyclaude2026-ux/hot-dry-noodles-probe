@@ -108,7 +108,7 @@ def get_ping(host):
     except:
         return 0.0
 
-def get_status():
+def get_status(last_state=None):
     # CPU
     cpu = psutil.cpu_percent(interval=0.1)
     cpu_count = psutil.cpu_count(logical=True)
@@ -132,12 +132,22 @@ def get_status():
             recv += stats.bytes_recv
         return sent, recv
 
-    s1, r1 = get_network_io()
-    time.sleep(0.5)
-    s2, r2 = get_network_io()
+    curr_sent, curr_recv = get_network_io()
+    curr_time = time.time()
     
-    sent_speed = (s2 - s1) / 0.5
-    recv_speed = (r2 - r1) / 0.5
+    # Calculate Speed based on previous state
+    if last_state and last_state.get('time'):
+        time_diff = curr_time - last_state['time']
+        if time_diff > 0:
+            sent_speed = (curr_sent - last_state['sent']) / time_diff
+            recv_speed = (curr_recv - last_state['recv']) / time_diff
+        else:
+            sent_speed = 0
+            recv_speed = 0
+    else:
+        # First run
+        sent_speed = 0
+        recv_speed = 0
     
     # Pings (CT, CU, CM)
     # Using reliable Backbone IPs to avoid DNS issues/timeouts
@@ -154,7 +164,8 @@ def get_status():
              pass
     public_ip = CACHED_IP
 
-    return {
+    # Return Result + New State
+    status = {
         "host": socket.gethostname(), # API will overwrite with real IP for security
         "uuid": get_uuid(), # Persistent ID
         "name": args.name if args.name else socket.gethostname(),
@@ -164,8 +175,8 @@ def get_status():
         "online": True,
         "uptime": int(time.time() - psutil.boot_time()),
         "load": psutil.getloadavg()[0] if hasattr(psutil, "getloadavg") else 0.0,
-        "network_in": int(r2),
-        "network_out": int(s2),
+        "network_in": int(curr_recv),
+        "network_out": int(curr_sent),
         "net_in_speed": int(recv_speed),
         "net_out_speed": int(sent_speed),
         "cpu": cpu,
@@ -179,6 +190,14 @@ def get_status():
         "ping_10010": p_cu,
         "ping_10086": p_cm
     }
+    
+    new_state = {
+        'sent': curr_sent,
+        'recv': curr_recv,
+        'time': curr_time
+    }
+    
+    return status, new_state
 
 def get_uuid():
     # Persistent UUID to identify this agent uniquely (even if IP changes)
@@ -206,9 +225,11 @@ def get_uuid():
 
 def main():
     print(f"Agent started. Reporting to {args.server}")
+    last_state = {}
+    
     while True:
         try:
-            data = get_status()
+            data, last_state = get_status(last_state)
             headers = {"Authorization": args.token}
             requests.post(args.server, json=data, headers=headers, timeout=5)
             # print("Report sent.", end='\r')

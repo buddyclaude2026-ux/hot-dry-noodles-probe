@@ -114,6 +114,7 @@ class ServerStatus(BaseModel):
     public_note: Optional[str] = None # e.g. Price
     expiry: Optional[str] = None 
     display_order: int = 0 
+    traffic_rate_threshold: Optional[float] = None # Per-server override 
 
 class NotificationConfig(BaseModel):
     tg_token: str
@@ -122,10 +123,12 @@ class NotificationConfig(BaseModel):
     bark_key: str
     enabled: bool
     latency_enable: bool = False
-    latency_enable: bool = False
     latency_threshold: int = 210
+    latency_isp_ct: bool = True
+    latency_isp_cu: bool = True
+    latency_isp_cm: bool = True
     traffic_rate_enable: bool = False
-    traffic_rate_threshold: int = 30 # Mbps
+    traffic_rate_threshold: float = 30.0 # Mbps (Float for Kbps support)
 
 
 
@@ -144,6 +147,7 @@ class ServerConfig(BaseModel):
     expiry: Optional[str] = None
     country_code: Optional[str] = None
     display_order: int = 0
+    traffic_rate_threshold: Optional[float] = None
 
 class LoginRequest(BaseModel):
     username: str
@@ -211,7 +215,8 @@ async def send_telegram_msg(text: str):
     try:
         import requests
         def _post():
-            requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}, timeout=5)
+            resp = requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}, timeout=5)
+            resp.raise_for_status()
         await asyncio.to_thread(_post)
     except Exception as e:
         logger.error(f"TG Error: {e}")
@@ -233,7 +238,10 @@ async def send_bark_msg(title: str, content: str):
                 "device_key": key,
                 "icon": "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/server.png"
             }
-            requests.post(url, json=payload, timeout=5)
+            resp = requests.post(url, json=payload, timeout=5)
+            if resp.status_code != 200:
+                logger.error(f"Bark Failed {resp.status_code}: {resp.text}")
+            resp.raise_for_status()
         await asyncio.to_thread(_post)
     except Exception as e:
         logger.error(f"Bark Error: {e}")
@@ -387,13 +395,36 @@ async def load_cache():
                     logger.error(f"Failed to load server {row[0]}: {e}")
         
         # Load Configs
-        async with db.execute("SELECT host, alias, public_note, expiry, country_code, display_order FROM server_configs") as cursor:
-            async for row in cursor:
-                host, alias, note, expiry, cc, order = row
-                config_cache[host] = ServerConfig(
-                    host=host, alias=alias, public_note=note, 
-                    expiry=expiry, country_code=cc, display_order=order
-                )
+        # Load Configs
+        try:
+            async with aiosqlite.connect(DB_PATH) as db:
+                # Migration: Add traffic_rate_threshold if missing
+                try:
+                    await db.execute("ALTER TABLE server_configs ADD COLUMN traffic_rate_threshold REAL")
+                    await db.commit()
+                    logger.info("DB Migration: Added traffic_rate_threshold column")
+                except:
+                    pass
+
+                async with db.execute("SELECT host, alias, public_note, expiry, country_code, display_order, traffic_rate_threshold FROM server_configs") as cursor:
+                    async for row in cursor:
+                        try:
+                            # Safely handle potentially missing columns if select matches outdated schema? 
+                            # No, we selected 7 columns.
+                            host, alias, note, expiry, cc, order, thresh = row
+                            config_cache[host] = ServerConfig(
+                                host=host,
+                                alias=alias,
+                                public_note=note,
+                                expiry=expiry,
+                                country_code=cc,
+                                display_order=row[5] if row[5] is not None else 0,
+                                traffic_rate_threshold=thresh
+                            )
+                        except Exception as e:
+                            logger.error(f"Config Load Error {row[0]}: {e}")
+        except Exception as e:
+             logger.error(f"Load Configs Failed: {e}")
     logger.info(f"Loaded {len(server_cache)} servers and {len(config_cache)} configs.")
 
 # --- Background Tasks ---
@@ -466,6 +497,7 @@ async def get_server_list():
             s.public_note = cfg.public_note
             s.expiry = cfg.expiry
             s.display_order = cfg.display_order
+            s.traffic_rate_threshold = cfg.traffic_rate_threshold
             if cfg.country_code: s.country_code = cfg.country_code
 
         if now - s.last_seen > 15:
@@ -573,6 +605,7 @@ async def report_status(data: ServerStatus, request: Request, token: str = Heade
         data.alert_status = old_s.alert_status
         data.latency_status = old_s.latency_status
         data.last_alert_ts = old_s.last_alert_ts # Preserve throttle timestamp
+        data.last_rate_alert_ts = old_s.last_rate_alert_ts # Preserve rate alert timestamp
         # Preserve country code if we have a better one in cache
         if (not data.country_code or data.country_code == 'cn') and old_s.country_code and old_s.country_code != 'cn':
             data.country_code = old_s.country_code
@@ -583,6 +616,7 @@ async def report_status(data: ServerStatus, request: Request, token: str = Heade
     # Merge Alias from Config Cache if exists
     if identity_key in config_cache:
         data.alias = config_cache[identity_key].alias
+        data.traffic_rate_threshold = config_cache[identity_key].traffic_rate_threshold
 
     server_cache[identity_key] = data
     
@@ -624,11 +658,14 @@ class ConfigUpdatePayload(BaseModel):
     expiry: Optional[str] = None
     country_code: Optional[str] = None
     display_order: int = 0
+    traffic_rate_threshold: Optional[float] = None
 
 @app.post("/api/v1/server/config")
 async def update_config(payload: ConfigUpdatePayload, token: str = Header(None, alias="Authorization")):
     if token != SECRET_TOKEN:
          raise HTTPException(status_code=401, detail="Unauthorized")
+
+    logger.info(f"DEBUG: Received Config Update: {payload}")
 
     # 1. Find Real Host by ID
     target_host = None
@@ -651,14 +688,15 @@ async def update_config(payload: ConfigUpdatePayload, token: str = Header(None, 
     cfg.expiry = payload.expiry
     cfg.country_code = payload.country_code
     cfg.display_order = payload.display_order
+    cfg.traffic_rate_threshold = payload.traffic_rate_threshold
     
     config_cache[target_host] = cfg
     
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute('''
-            INSERT OR REPLACE INTO server_configs (host, alias, public_note, expiry, country_code, display_order)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (target_host, cfg.alias, cfg.public_note, cfg.expiry, cfg.country_code, cfg.display_order))
+        INSERT OR REPLACE INTO server_configs (host, alias, public_note, expiry, country_code, display_order, traffic_rate_threshold) 
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (target_host, cfg.alias, cfg.public_note, cfg.expiry, cfg.country_code, cfg.display_order, cfg.traffic_rate_threshold))
         await db.commit()
     return {"status": "ok"}
 
@@ -803,21 +841,6 @@ async def enable_2fa(req: ContentEnable2FA, token: str = Header(None, alias="Aut
 # --- Notification API ---
 
 
-@app.get("/api/v1/settings/notify")
-async def get_notify_settings(token: str = Header(None, alias="Authorization")):
-    if token != SECRET_TOKEN: raise HTTPException(401)
-    return {
-        "tg_token": system_settings.get("notify_tg_token", ""),
-        "tg_chat_id": system_settings.get("notify_tg_chat_id", ""),
-        "bark_server": system_settings.get("notify_bark_server", "http://bark-server:8080"),
-        "bark_key": system_settings.get("notify_bark_key", ""),
-        "enabled": system_settings.get("notify_enabled") == "true",
-        "latency_enable": system_settings.get("notify_latency_enable") == "true",
-        "latency_threshold": int(system_settings.get("notify_latency_threshold", "210")),
-        "latency_isp_ct": system_settings.get("notify_latency_isp_ct", "true") == "true",
-        "latency_isp_cu": system_settings.get("notify_latency_isp_cu", "true") == "true",
-        "latency_isp_cm": system_settings.get("notify_latency_isp_cm", "true") == "true",
-    }
 
 
 
@@ -842,7 +865,7 @@ async def get_notify_settings(token: str = Header(None, alias="Authorization")):
         "latency_isp_cu": system_settings.get("notify_latency_isp_cu", "true") == "true",
         "latency_isp_cm": system_settings.get("notify_latency_isp_cm", "true") == "true",
         "traffic_rate_enable": system_settings.get("notify_traffic_rate_enable") == "true",
-        "traffic_rate_threshold": int(system_settings.get("notify_traffic_rate_threshold", "30")),
+        "traffic_rate_threshold": float(system_settings.get("notify_traffic_rate_threshold", "30.0")),
     }
 
 @app.post("/api/v1/settings/notify")
@@ -876,7 +899,7 @@ async def monitor_alerts_task():
             check_cu = system_settings.get("notify_latency_isp_cu", "true") == "true"
             check_cm = system_settings.get("notify_latency_isp_cm", "true") == "true"
             rate_enable = system_settings.get("notify_traffic_rate_enable") == "true"
-            rate_threshold_mbps = int(system_settings.get("notify_traffic_rate_threshold", "30"))
+            rate_threshold_mbps = float(system_settings.get("notify_traffic_rate_threshold", "30.0"))
 
             for sid, s in list(server_cache.items()):
                 # Helper for ID Masking in Notifications
@@ -937,25 +960,39 @@ async def monitor_alerts_task():
 
                 # 3. Traffic Rate Alert
                 if rate_enable and s.online:
-                    # Convert bytes/s to Mbps: * 8 / 1,000,000
-                    in_mbps = (s.net_in_speed * 8) / 1_000_000
-                    out_mbps = (s.net_out_speed * 8) / 1_000_000
-                    max_mbps = max(in_mbps, out_mbps)
+                    # Convert bytes/s to MB/s (Binary): / 1024 / 1024
+                    in_mbs = s.net_in_speed / 1024 / 1024
+                    out_mbs = s.net_out_speed / 1024 / 1024
+                    max_mbs = max(in_mbs, out_mbs)
+                    
+                    # Threshold logic: User Per-Server or Global
+                    # Priority: s.traffic_rate_threshold > rate_threshold_mbps (Global)
+                    current_threshold = rate_threshold_mbps
+                    if s.traffic_rate_threshold is not None and s.traffic_rate_threshold > 0:
+                        current_threshold = s.traffic_rate_threshold
 
-                    if max_mbps > rate_threshold_mbps:
-                         should_alert_rate = False
-                         if s.rate_status != 'high': should_alert_rate = True
-                         if (now - s.last_rate_alert_ts) > 600: should_alert_rate = True # 10 min cooldown
-
-                         if should_alert_rate:
-                             s.rate_status = 'high'
+                    # Threshold is now treated as MB/s
+                    if max_mbs > current_threshold:
+                         # Always update status to high
+                         s.rate_status = 'high'
+                         
+                         # Alert purely on Cooldown (Strict 10 mins)
+                         if (now - s.last_rate_alert_ts) > 600:
                              s.last_rate_alert_ts = now
-                             logger.warning(f"High Traffic Rate: {s.name or s.host} ({max_mbps:.1f} Mbps)")
+                             
+                             # Format Human Readable
+                             if max_mbs < 1:
+                                 disp_val = f"{max_mbs * 1024:.2f} KB/s"
+                                 disp_thresh = f"{current_threshold * 1024:.2f} KB/s"
+                             else:
+                                 disp_val = f"{max_mbs:.2f} MB/s"
+                                 disp_thresh = f"{current_threshold:.2f} MB/s"
+                                 
+                             logger.warning(f"High Traffic Rate: {s.name or s.host} ({disp_val})")
                              safe_name = s.alias or s.name or notify_mask_ip(s.ip_address)
-                             await send_notification("🚀 异常流量报警", f"服务器: {safe_name}\nIP: {notify_mask_ip(s.ip_address)}\n当前速率: {max_mbps:.1f} Mbps (阈值 {rate_threshold_mbps} Mbps)\n方向: {'上传' if out_mbps > in_mbps else '下载'}")
+                             await send_notification("🚀 异常流量报警", f"服务器: {safe_name}\nIP: {notify_mask_ip(s.ip_address)}\n当前速率: {disp_val} (阈值 {disp_thresh})\n方向: {'上传' if out_mbs > in_mbs else '下载'}")
                     else:
-                        if s.rate_status == 'high':
-                            s.rate_status = 'normal'
+                        s.rate_status = 'normal'
 
         except Exception as e:
             logger.error(f"Monitor Task Error: {e}")
