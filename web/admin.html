@@ -179,6 +179,9 @@
             <div class="dash-header">
                 <h2><i class="fas fa-server me-2 text-primary"></i>服务器管理</h2>
                 <div>
+                    <button class="btn btn-dark btn-sm me-2" onclick="toggleDetectiveMode()">
+                        <i class="fas fa-user-secret"></i> 侦探模式
+                    </button>
                     <button class="btn btn-success btn-sm me-2" onclick="showAddModal()">
                         <i class="fas fa-plus"></i> 添加服务器
                     </button>
@@ -201,15 +204,44 @@
                 </div>
             </div>
 
-            <div class="alert alert-info">
-                <i class="fas fa-info-circle me-2"></i>
-                添加服务器请在目标机器运行 One-Liner 脚本。
+            添加服务器请在目标机器运行 One-Liner 脚本。
+        </div>
+
+        <!-- Server List View -->
+        <div id="server-list">
+            <!-- Servers Injected Here -->
+        </div>
+
+        <!-- Log Detective View (Hidden by default) -->
+        <div id="log-view" style="display:none">
+            <div class="card p-3 mb-4">
+                <div class="row align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted">开始时间</label>
+                        <input type="datetime-local" id="log-start" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted">结束时间</label>
+                        <input type="datetime-local" id="log-end" class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100" onclick="loadLogs()">
+                            <i class="fas fa-search"></i> 搜索证据
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            <div id="server-list">
-                <!-- Servers Injected Here -->
+            <div id="log-timeline">
+                <!-- Logs Injected Here -->
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-search fa-3x mb-3 opacity-25"></i>
+                    <p>选择时间范围开始搜寻...</p>
+                </div>
             </div>
         </div>
+
+    </div>
     </div>
 
     <!-- Edit Modal -->
@@ -294,6 +326,29 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-success" onclick="enable2FA()">启用 2FA</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Context Modal -->
+    <div class="modal fade" id="logModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title"><i class="fas fa-file-invoice me-2"></i>证据详情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="small text-muted">报警内容</label>
+                        <div id="log-detail-content" class="p-3 bg-light rounded" style="white-space: pre-wrap;"></div>
+                    </div>
+                    <div>
+                        <label class="small text-muted">现场指标快照 (Context Snapshot)</label>
+                        <pre id="log-detail-json" class="bg-dark text-white p-3 rounded"
+                            style="max-height: 400px; overflow: auto;"></pre>
+                    </div>
                 </div>
             </div>
         </div>
@@ -995,6 +1050,100 @@
                 el.select();
                 document.execCommand('copy');
                 alert('复制成功！');
+            }
+
+            // --- Log Detective Logic ---
+            function toggleDetectiveMode() {
+                const list = document.getElementById('server-list');
+                const logs = document.getElementById('log-view');
+
+                if (logs.style.display === 'none') {
+                    list.style.display = 'none';
+                    logs.style.display = 'block';
+                    // Set default time range (Last 24h)
+                    const now = new Date();
+                    const yst = new Date(now - 24 * 60 * 60 * 1000);
+                    // Format: YYYY-MM-DDTHH:mm
+                    const toLocal = (d) => {
+                        const off = d.getTimezoneOffset() * 60000;
+                        return new Date(d.getTime() - off).toISOString().slice(0, 16);
+                    };
+
+                    document.getElementById('log-end').value = toLocal(now);
+                    document.getElementById('log-start').value = toLocal(yst);
+                    loadLogs();
+                } else {
+                    list.style.display = 'block';
+                    logs.style.display = 'none';
+                }
+            }
+
+            async function loadLogs() {
+                const startStr = document.getElementById('log-start').value;
+                const endStr = document.getElementById('log-end').value;
+                const token = localStorage.getItem('token'); // Fix: Get token here
+
+                let url = API_ROOT + '/alerts/history?limit=100';
+                if (startStr) url += `&start_ts=${Math.floor(new Date(startStr).getTime() / 1000)}`;
+                if (endStr) url += `&end_ts=${Math.floor(new Date(endStr).getTime() / 1000)}`;
+
+                // Show loading
+                document.getElementById('log-timeline').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+
+                try {
+                    const res = await fetch(url, { headers: { 'Authorization': token } });
+                    const data = await res.json();
+                    renderLogs(data);
+                } catch (e) {
+                    alert('Fetch Logs Failed: ' + e);
+                }
+            }
+
+            function renderLogs(logs) {
+                const container = document.getElementById('log-timeline');
+                if (!logs || logs.length === 0) {
+                    container.innerHTML = '<div class="text-center py-5 text-muted">暂无相关报警记录</div>';
+                    return;
+                }
+
+                let html = '<div class="list-group">';
+                logs.forEach(log => {
+                    const date = new Date(log.ts * 1000).toLocaleString();
+                    let icon = 'fa-bell';
+                    let color = 'text-primary';
+                    let badge = 'bg-primary';
+
+                    if (log.type === 'OFFLINE') { icon = 'fa-power-off'; color = 'text-danger'; badge = 'bg-danger'; }
+                    if (log.type === 'ONLINE') { icon = 'fa-plug'; color = 'text-success'; badge = 'bg-success'; }
+                    if (log.type === 'TRAFFIC') { icon = 'fa-tachometer-alt'; color = 'text-warning'; badge = 'bg-warning text-dark'; }
+
+                    // Store context in dataset (escaped)
+                    const ctxStr = encodeURIComponent(JSON.stringify(log.context));
+                    const contentStr = encodeURIComponent(log.content);
+
+                    html += `
+                <a href="#" class="list-group-item list-group-item-action p-3" onclick="showLogDetail(this)" data-content="${contentStr}" data-ctx="${ctxStr}">
+                    <div class="d-flex w-100 justify-content-between align-items-center">
+                        <h6 class="mb-1 ${color}"><i class="fas ${icon} me-2"></i>${log.title}</h6>
+                        <small class="text-muted">${date}</small>
+                    </div>
+                    <p class="mb-1 small text-muted text-truncate" style="max-width: 80%">${log.content.replace(/\n/g, ' ')}</p>
+                    <small>ID: ${log.svid.substring(0, 8)}... <span class="badge ${badge} rounded-pill ms-2">${log.type}</span></small>
+                </a>
+                `;
+                });
+                html += '</div>';
+                container.innerHTML = html;
+            }
+
+            const logModal = new bootstrap.Modal(document.getElementById('logModal'));
+            function showLogDetail(el) {
+                const content = decodeURIComponent(el.getAttribute('data-content'));
+                const ctx = JSON.parse(decodeURIComponent(el.getAttribute('data-ctx')));
+
+                document.getElementById('log-detail-content').innerText = content;
+                document.getElementById('log-detail-json').innerText = JSON.stringify(ctx, null, 2);
+                logModal.show();
             }
 
             // Init

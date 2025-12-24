@@ -471,6 +471,54 @@
             </div>
         </div>
 
+        <style>
+            /* Chicken Animations */
+            .chicken-container {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 2px;
+                margin-left: 8px;
+            }
+
+            .chicken-icon {
+                font-size: 20px;
+                line-height: 1;
+                display: inline-block;
+            }
+
+            .chicken-walking {
+                animation: chicken-walk 0.6s infinite ease-in-out alternate;
+            }
+
+            .chicken-fainted {
+                animation: chicken-faint 1s forwards;
+                /* Static faint */
+                filter: grayscale(100%);
+                opacity: 0.7;
+            }
+
+            @keyframes chicken-walk {
+                0% {
+                    transform: translateY(0) rotate(-5deg);
+                }
+
+                100% {
+                    transform: translateY(-3px) rotate(5deg);
+                }
+            }
+
+            @keyframes chicken-faint {
+                0% {
+                    transform: rotate(0);
+                }
+
+                100% {
+                    transform: rotate(90deg);
+                }
+            }
+        </style>
+
         <div class="summary-row">
             <div class="summary-card">
                 <div class="sum-title">当前时间</div>
@@ -478,10 +526,19 @@
             </div>
             <div class="summary-card">
                 <div class="sum-title">服务器概况</div>
-                <div class="sum-val">
-                    <div class="dot-val"><i class="fas fa-circle text-success"></i> <span id="top-online">0</span></div>
-                    <div class="dot-val" style="margin: 0 5px; color: var(--text-secondary)">/</div>
-                    <div class="dot-val"><i class="fas fa-circle text-danger"></i> <span id="top-offline">0</span></div>
+                <div class="sum-val" style="flex-direction: column; align-items: flex-start;">
+                    <!-- Online Row -->
+                    <div style="display: flex; align-items: center; width: 100%; margin-bottom: 8px;">
+                        <i class="fas fa-circle text-success" style="margin-right: 8px;"></i>
+                        <span id="top-online-count" style="font-weight: 700; min-width: 20px;">0</span>
+                        <div id="online-container" class="chicken-container"></div>
+                    </div>
+                    <!-- Offline Row -->
+                    <div style="display: flex; align-items: center; width: 100%;">
+                        <i class="fas fa-circle text-danger" style="margin-right: 8px;"></i>
+                        <span id="top-offline-count" style="font-weight: 700; min-width: 20px;">0</span>
+                        <div id="offline-container" class="chicken-container"></div>
+                    </div>
                 </div>
             </div>
             <div class="summary-card">
@@ -602,8 +659,28 @@
                 String(now.getMinutes()).padStart(2, '0') + ':' +
                 String(now.getSeconds()).padStart(2, '0');
             document.getElementById('top-time').innerText = timeStr;
-            document.getElementById('top-online').innerText = online;
-            document.getElementById('top-offline').innerText = offline;
+            // Update Online/Offline Chickens
+            document.getElementById('top-online-count').innerText = online;
+            document.getElementById('top-offline-count').innerText = offline;
+
+            const onContainer = document.getElementById('online-container');
+            const offContainer = document.getElementById('offline-container');
+
+            // Render Walking Chickens
+            let onHtml = '';
+            for (let i = 0; i < online; i++) {
+                // Stagger animations slightly for natural look
+                const delay = (i * 0.1) % 1;
+                onHtml += `<div class="chicken-icon chicken-walking" style="animation-delay: -${delay}s">🐥</div>`;
+            }
+            if (onContainer.innerHTML !== onHtml) onContainer.innerHTML = onHtml;
+
+            // Render Fainted Chickens
+            let offHtml = '';
+            for (let i = 0; i < offline; i++) {
+                offHtml += `<div class="chicken-icon chicken-fainted">🍗</div>`;
+            }
+            if (offContainer.innerHTML !== offHtml) offContainer.innerHTML = offHtml;
             document.getElementById('top-up').innerText = fmtBytes(cup);
             document.getElementById('top-down').innerText = fmtBytes(cdown);
             document.getElementById('top-up-speed').innerText = fmtSpeed(sup);

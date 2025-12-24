@@ -158,6 +158,26 @@ class ContentChangePassword(BaseModel):
     old_password: str
     new_password: str
 
+class AlertHistoryItem(BaseModel):
+    id: int
+    ts: int  # UTC timestamp
+    svid: str # Server ID
+    type: str # TRAFFIC, OFFLINE, SYSTEM
+    title: str
+    content: str
+    context: str # JSON Dump
+
+
+class AlertHistoryItem(BaseModel):
+    id: int
+    ts: int  # UTC timestamp
+    svid: str # Server ID
+    type: str # TRAFFIC, OFFLINE, SYSTEM
+    title: str
+    content: str
+    context: str # JSON Dump
+
+
 class ContentEnable2FA(BaseModel):
     secret: str
     code: str
@@ -242,6 +262,9 @@ async def send_bark_msg(title: str, content: str):
             if resp.status_code != 200:
                 logger.error(f"Bark Failed {resp.status_code}: {resp.text}")
             resp.raise_for_status()
+        
+        # Fire and forget bark, but record it first!
+        # Note: We record explicitly in monitor_alerts now to capture context
         await asyncio.to_thread(_post)
     except Exception as e:
         logger.error(f"Bark Error: {e}")
@@ -292,6 +315,19 @@ async def init_db():
                 last_seen INTEGER
             )
         ''')
+        # Alert History Table
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS alert_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts INTEGER,
+                svid TEXT,
+                type TEXT,
+                title TEXT,
+                content TEXT,
+                context TEXT
+            )
+        ''')
+
         # Configs Table
         await db.execute('''
             CREATE TABLE IF NOT EXISTS server_configs (
@@ -426,6 +462,22 @@ async def load_cache():
         except Exception as e:
              logger.error(f"Load Configs Failed: {e}")
     logger.info(f"Loaded {len(server_cache)} servers and {len(config_cache)} configs.")
+
+# --- Log History Helper (Sherlock) ---
+def record_alert(svid: str, alert_type: str, title: str, content: str, context: dict):
+    try:
+        import json
+        with sqlite3.connect("data.db") as conn:
+            c = conn.cursor()
+            c.execute("INSERT INTO alert_history (ts, svid, type, title, content, context) VALUES (?, ?, ?, ?, ?, ?)",
+                      (int(time.time()), svid, alert_type, title, content, json.dumps(context)))
+            conn.commit()
+            # Keep history slim (keep last 1000)
+            c.execute("DELETE FROM alert_history WHERE id NOT IN (SELECT id FROM alert_history ORDER BY id DESC LIMIT 1000)")
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Failed to record alert history: {e}")
+
 
 # --- Background Tasks ---
 async def history_recorder_task():
@@ -782,6 +834,47 @@ async def change_password(req: ContentChangePassword, token: str = Header(None, 
         await db.commit()
     return {"status": "ok"}
 
+@app.get("/api/v1/alerts/history", dependencies=[Depends(get_current_username)])
+async def get_alert_history(limit: int = 50, start_ts: Optional[int] = None, end_ts: Optional[int] = None):
+    try:
+        import json
+        with sqlite3.connect("data.db") as conn:
+            c = conn.cursor()
+            query = "SELECT id, ts, svid, type, title, content, context FROM alert_history WHERE 1=1"
+            params = []
+            if start_ts:
+                query += " AND ts >= ?"
+                params.append(start_ts)
+            if end_ts:
+                query += " AND ts <= ?"
+                params.append(end_ts)
+            
+            query += " ORDER BY id DESC LIMIT ?"
+            params.append(limit)
+            
+            c.execute(query, tuple(params))
+            rows = c.fetchall()
+            ret = []
+            for r in rows:
+                try:
+                    ctx = json.loads(r[6])
+                except:
+                    ctx = {}
+                ret.append({
+                    "id": r[0],
+                    "ts": r[1],
+                    "svid": r[2],
+                    "type": r[3],
+                    "title": r[4],
+                    "content": r[5],
+                    "context": ctx
+                })
+            return ret
+    except Exception as e:
+        logger.error(f"DB Error: {e}")
+        return []
+
+
 @app.get("/api/v1/user/me")
 async def get_user_info(token: str = Header(None, alias="Authorization")):
     if token != SECRET_TOKEN:
@@ -918,13 +1011,29 @@ async def monitor_alerts_task():
                         s.alert_status = 'down'
                         s.online = False
                         logger.warning(f"Server Down: {s.name or s.host}")
-                        await send_notification("🔴 服务器报警", f"服务器离线: {s.alias or s.name or s.host}\nIP: {notify_mask_ip(s.ip_address)}\n时间: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                        msg = f"服务器离线: {s.alias or s.name or s.host}\nIP: {notify_mask_ip(s.ip_address)}\n时间: {time.strftime('%Y-%m-%d %H:%M:%S')}"
+                        
+                        record_alert(sid, "OFFLINE", "🔴 服务器报警", msg, {
+                            "last_seen": s.last_seen,
+                            "now": now,
+                            "diff": now - s.last_seen,
+                            "ip": s.ip_address
+                        })
+                        await send_notification("🔴 服务器报警", msg)
                 else:
                     if s.alert_status == 'down':
                         s.alert_status = 'up'
                         s.online = True
                         logger.info(f"Server Up: {s.name or s.host}")
-                        await send_notification("🟢服务器恢复", f"服务器上线: {s.alias or s.name or s.host}\nIP: {notify_mask_ip(s.ip_address)}\n时间: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                        msg = f"服务器上线: {s.alias or s.name or s.host}\nIP: {notify_mask_ip(s.ip_address)}\n时间: {time.strftime('%Y-%m-%d %H:%M:%S')}"
+                        
+                        record_alert(sid, "ONLINE", "🟢服务器恢复", msg, {
+                            "last_seen": s.last_seen,
+                            "now": now,
+                            "ip": s.ip_address
+                        })
+                        await send_notification("🟢服务器恢复", msg)
+
                     else:
                         if s.alert_status != 'up': s.alert_status = 'up'
                 
@@ -950,7 +1059,16 @@ async def monitor_alerts_task():
                                 logger.warning(f"High Latency: {s.name or s.host} ({max_ping}ms)")
                                 # Ensure display name doesn't leak IP if no alias/name
                                 safe_name = s.alias or s.name or notify_mask_ip(s.ip_address)
-                                await send_notification("⚠️ 高延迟报警", f"服务器: {safe_name}\nIP: {notify_mask_ip(s.ip_address)}\n最大延迟: {max_ping}ms (阈值 {lat_threshold}ms)\n三网: CT{s.ping_189}|CU{s.ping_10010}|CM{s.ping_10086}")
+                                msg = f"服务器: {safe_name}\nIP: {notify_mask_ip(s.ip_address)}\n最大延迟: {max_ping}ms (阈值 {lat_threshold}ms)\n三网: CT{s.ping_189}|CU{s.ping_10010}|CM{s.ping_10086}"
+                                
+                                record_alert(sid, "LATENCY", "⚠️ 高延迟报警", msg, {
+                                     "ping_max": max_ping,
+                                     "threshold": lat_threshold,
+                                     "ct": s.ping_189,
+                                     "cu": s.ping_10010,
+                                     "cm": s.ping_10086
+                                })
+                                await send_notification("⚠️ 高延迟报警", msg)
                         else:
                             if s.latency_status == 'high':
                                 s.latency_status = 'normal'
@@ -988,9 +1106,19 @@ async def monitor_alerts_task():
                                  disp_val = f"{max_mbs:.2f} MB/s"
                                  disp_thresh = f"{current_threshold:.2f} MB/s"
                                  
+                                 
                              logger.warning(f"High Traffic Rate: {s.name or s.host} ({disp_val})")
                              safe_name = s.alias or s.name or notify_mask_ip(s.ip_address)
-                             await send_notification("🚀 异常流量报警", f"服务器: {safe_name}\nIP: {notify_mask_ip(s.ip_address)}\n当前速率: {disp_val} (阈值 {disp_thresh})\n方向: {'上传' if out_mbs > in_mbs else '下载'}")
+                             msg = f"服务器: {safe_name}\nIP: {notify_mask_ip(s.ip_address)}\n当前速率: {disp_val} (阈值 {disp_thresh})\n方向: {'上传' if out_mbs > in_mbs else '下载'}"
+                             
+                             record_alert(sid, "TRAFFIC", "🚀 异常流量报警", msg, {
+                                 "rate_mbps": max_mbs,
+                                 "threshold_mbps": current_threshold,
+                                 "in_mbps": in_mbs,
+                                 "out_mbps": out_mbs,
+                                 "disp_val": disp_val
+                             })
+                             await send_notification("🚀 异常流量报警", msg)
                     else:
                         s.rate_status = 'normal'
 
