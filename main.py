@@ -912,7 +912,7 @@ async def monitor_alerts_task():
                     return "Hidden"
 
                 # 1. Offline Check
-                is_offline = (now - s.last_seen) > 35
+                is_offline = (now - s.last_seen) > 90
                 if is_offline:
                     if s.alert_status != 'down':
                         s.alert_status = 'down'

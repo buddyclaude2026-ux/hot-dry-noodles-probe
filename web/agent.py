@@ -117,7 +117,15 @@ def get_status(last_state=None):
     mem = psutil.virtual_memory()
     
     # Disk
-    disk = psutil.disk_usage('/')
+    # Disk Usage (Check Host Mount first)
+    disk_path = '/'
+    if os.path.exists('/host/root'):
+        disk_path = '/host/root'
+    
+    try:
+        disk = psutil.disk_usage(disk_path)
+    except:
+        disk = psutil.disk_usage('/')
     
     # Network Speed (Diff - Excluding Localhost/Docker)
     def get_network_io():

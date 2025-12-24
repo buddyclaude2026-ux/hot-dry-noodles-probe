@@ -24,6 +24,7 @@ services:
     network_mode: "host"
     volumes:
       - .:/app
+      - /:/host/root:ro
       - /etc/os-release:/host/etc/os-release:ro
     command: python3 web/agent.py --server http://localhost:8081/api/v1/report --token 921a82d269b4268c9b298d8d844caf45 --name 'HostDare_Cssd01'
   bark:
@@ -46,6 +47,6 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
     restart: always
-    command: tunnel run
+    command: tunnel run --protocol http2
     environment:
       - TUNNEL_TOKEN=eyJhIjoiOTQzN2RmNzQ0NjBhZDkzNGIxY2U5ZTU4ZDZiOTQ0YTgiLCJ0IjoiOThhZjUwMWQtMjg3Mi00N2EyLTg5MDAtN2RhMmQ2NjMzOGFlIiwicyI6IlpHTmtZVEJpTjJJdE5EazFZaTAwWXpjMkxXRmxaalF0TXpKaVptTmhNVFUzTURReiJ9

@@ -981,6 +981,7 @@
   --network host \\
   -v /proc:/proc \\
   -v /sys:/sys \\
+  -v /:/host/root:ro \\
   -v /etc/os-release:/host/etc/os-release:ro \\
   python:3-slim \\
   /bin/sh -c "apt-get update && apt-get install -y iputils-ping curl && pip install psutil requests && curl -sL ${host}/agent.py | python3 - --name '${name}' --country '${cc}' --server '${host}/api/v1/report' --token '${token}'"`;
