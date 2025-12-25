@@ -774,464 +774,368 @@
         </div>
     </div>
 
-    <!-- Notification Settings Modal -->
-    <div class="modal fade" id="notifyModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">🔔 通知设置</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" id="notify-enabled">
-                        <label class="form-check-label" for="notify-enabled">启用报警通知</label>
-                    </div>
 
-                    <h6 class="text-primary mt-4"><i class="fab fa-telegram"></i> Telegram</h6>
-                    <div class="mb-2">
-                        <label class="form-label small">Bot Token</label>
-                        <input type="text" class="form-control form-control-sm" id="notify-tg-token"
-                            placeholder="123456:ABC-DEF...">
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label small">Chat ID</label>
-                        <input type="text" class="form-control form-control-sm" id="notify-tg-chat"
-                            placeholder="-100123456789">
-                    </div>
 
-                    <h6 class="text-success mt-4"><i class="fas fa-bullhorn"></i> Bark (iOS)</h6>
-                    <div class="mb-2">
-                        <label class="form-label small">Server URL</label>
-                        <input type="text" class="form-control form-control-sm" id="notify-bark-server"
-                            placeholder="https://api.day.app">
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label small">Device Key</label>
-                        <input type="text" class="form-control form-control-sm" id="notify-bark-key"
-                            placeholder="Your Device Key">
-                    </div>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_ROOT = '/api/v1';
+        let currentServers = [];
+        let editModal, pwModal, otpModal, addModal;
 
-                    <h6 class="text-danger mt-4"><i class="fas fa-heartbeat"></i> 高级报警</h6>
-                    <div class="form-check form-switch mb-2">
-                        <input class="form-check-input" type="checkbox" id="notify-lat-enable">
-                        <label class="form-check-label" for="notify-lat-enable">启用高延迟报警</label>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small">报警阈值 (ms)</label>
-                        <input type="number" class="form-control form-control-sm" id="notify-lat-threshold" value="210">
-                    </div>
+        // Cached credentials
+        let pendingUser = '';
+        let pendingPass = '';
 
-                    <div class="mb-3">
-                        <label class="form-label small d-block">监控线路 (满足任意一项即报警)</label>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="checkbox" id="notify-lat-ct" checked>
-                            <label class="form-check-label small" for="notify-lat-ct">电信</label>
-                        </div>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="checkbox" id="notify-lat-cu" checked>
-                            <label class="form-check-label small" for="notify-lat-cu">联通</label>
-                        </div>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="checkbox" id="notify-lat-cm" checked>
-                            <label class="form-check-label small" for="notify-lat-cm">移动</label>
-                        </div>
-                    </div>
+        document.addEventListener('DOMContentLoaded', () => {
+            editModal = new bootstrap.Modal(document.getElementById('editModal'));
+            pwModal = new bootstrap.Modal(document.getElementById('pwModal'));
+            otpModal = new bootstrap.Modal(document.getElementById('otpModal'));
+            addModal = new bootstrap.Modal(document.getElementById('addModal'));
+            // notifyModal removed
+            checkAuth();
+        });
 
-                    <div class="form-check form-switch mb-2">
-                        <input class="form-check-input" type="checkbox" id="notify-rate-enable">
-                        <label class="form-check-label" for="notify-rate-enable">启用流量速率报警</label>
-                    </div>
-                    <div class="mb-3">
-                        <div class="mb-3">
-                            <label class="form-label small">报警阈值 - 适用于异常/偷跑检测</label>
-                            <div class="input-group input-group-sm">
-                                <input type="number" class="form-control" id="notify-rate-threshold" value="5"
-                                    step="0.1">
-                                <select class="form-select" id="notify-rate-unit" style="max-width: 100px;">
-                                    <option value="MB/s">MB/s</option>
-                                    <option value="KB/s">KB/s</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer justify-content-between">
-                        <button type="button" class="btn btn-outline-warning" onclick="testNotify()">
-                            <i class="fas fa-paper-plane"></i> 发送测试
-                        </button>
-                        <div>
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                            <button type="button" class="btn btn-primary" onclick="saveNotify()">保存</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        // ... Existing Auth Logic ...
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (token) showDashboard(); else showLogin();
+        }
 
-        <!-- Bootstrap JS -->
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-        <script>
-            const API_ROOT = '/api/v1';
-            let currentServers = [];
-            let editModal, pwModal, otpModal, addModal, notifyModal;
+        // showNotifySettings removed (Using Tab)
 
-            // Cached credentials
-            let pendingUser = '';
-            let pendingPass = '';
-
-            document.addEventListener('DOMContentLoaded', () => {
-                editModal = new bootstrap.Modal(document.getElementById('editModal'));
-                pwModal = new bootstrap.Modal(document.getElementById('pwModal'));
-                otpModal = new bootstrap.Modal(document.getElementById('otpModal'));
-                addModal = new bootstrap.Modal(document.getElementById('addModal'));
-                notifyModal = new bootstrap.Modal(document.getElementById('notifyModal'));
-                checkAuth();
-            });
-
-            // ... Existing Auth Logic ...
-            function checkAuth() {
+        async function loadNotifySettings() {
+            try {
                 const token = localStorage.getItem('token');
-                if (token) showDashboard(); else showLogin();
-            }
-
-            function showNotifySettings() {
-                loadNotifySettings();
-                notifyModal.show();
-            }
-
-            async function loadNotifySettings() {
-                try {
-                    const token = localStorage.getItem('token');
-                    if (!token) return;
-                    const res = await fetch(API_ROOT + '/settings/notify', {
-                        headers: { 'Authorization': token }
-                    });
-                    if (res.ok) {
-                        const data = await res.json();
-                        document.getElementById('notify-enabled').checked = data.enabled;
-                        document.getElementById('notify-tg-token').value = data.tg_token;
-                        document.getElementById('notify-tg-chat').value = data.tg_chat_id;
-                        document.getElementById('notify-bark-server').value = data.bark_server;
-                        document.getElementById('notify-bark-key').value = data.bark_key;
-
-                        // Advanced
-                        document.getElementById('notify-lat-enable').checked = data.latency_enable;
-                        document.getElementById('notify-lat-threshold').value = data.latency_threshold;
-                        document.getElementById('notify-lat-ct').checked = data.latency_isp_ct;
-                        document.getElementById('notify-lat-cu').checked = data.latency_isp_cu;
-                        document.getElementById('notify-lat-cm').checked = data.latency_isp_cm;
-                        document.getElementById('notify-rate-enable').checked = data.traffic_rate_enable;
-
-                        // Unit Conversion Logic (Bytes, 1024)
-                        let rate = data.traffic_rate_threshold; // In MB/s
-                        let unit = 'MB/s';
-                        if (rate > 0 && rate < 1) {
-                            rate = parseFloat((rate * 1024).toFixed(1));
-                            unit = 'KB/s';
-                        }
-                        document.getElementById('notify-rate-threshold').value = rate;
-                        document.getElementById('notify-rate-unit').value = unit;
-                    }
-                } catch (e) { console.error("Load Notify Error", e); }
-            }
-
-            async function saveNotify() {
-                const token = localStorage.getItem('token');
-
-                // Calc Threshold (Bytes, 1024)
-                let rateVal = parseFloat(document.getElementById('notify-rate-threshold').value) || 0;
-                const rateUnit = document.getElementById('notify-rate-unit').value;
-
-                console.log("Saving Notify Debug: Val=", rateVal, "Unit=", rateUnit);
-
-                // Normalize to MB/s
-                if (rateUnit === 'KB/s') rateVal = rateVal / 1024.0;
-
-                console.log("Normalized Rate (KBps->MBps):", rateVal);
-
-                const data = {
-                    enabled: document.getElementById('notify-enabled').checked,
-                    tg_token: document.getElementById('notify-tg-token').value,
-                    tg_chat_id: document.getElementById('notify-tg-chat').value,
-                    bark_server: document.getElementById('notify-bark-server').value,
-                    bark_key: document.getElementById('notify-bark-key').value,
-                    // Advanced
-                    latency_enable: document.getElementById('notify-lat-enable').checked,
-                    latency_threshold: parseInt(document.getElementById('notify-lat-threshold').value) || 210,
-                    latency_isp_ct: document.getElementById('notify-lat-ct').checked,
-                    latency_isp_cu: document.getElementById('notify-lat-cu').checked,
-                    latency_isp_cm: document.getElementById('notify-lat-cm').checked,
-                    traffic_rate_enable: document.getElementById('notify-rate-enable').checked,
-                    traffic_rate_threshold: rateVal
-                };
-                try {
-                    const res = await fetch(API_ROOT + '/settings/notify', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': token },
-                        body: JSON.stringify(data)
-                    });
-                    if (res.ok) {
-                        alert('保存成功！');
-                        notifyModal.hide();
-                    } else alert('保存失败');
-                } catch (e) { alert('网络错误'); }
-            }
-
-            async function testNotify() {
-                const token = localStorage.getItem('token');
-                if (!confirm("确定要发送测试报警吗？请先保存配置！")) return;
-
-                try {
-                    const res = await fetch(API_ROOT + '/settings/notify/test', {
-                        method: 'POST',
-                        headers: { 'Authorization': token }
-                    });
-                    if (res.ok) alert('测试请求已发送，请检查手机。');
-                    else alert('发送失败');
-                } catch (e) { alert('网络错误'); }
-            }
-
-            // --- Auth Logic (Restored) ---
-
-            function showLogin() {
-                document.getElementById('login-section').style.display = 'flex';
-                document.getElementById('dashboard-section').style.display = 'none';
-                backToStep1(); // Reset to step 1
-            }
-
-            function showDashboard() {
-                document.getElementById('login-section').style.display = 'none';
-                document.getElementById('dashboard-section').style.display = 'block';
-                loadServers();
-                // Check auth and setup UI
-                updateUserStatus();
-                // Default Tab
-                switchTab('servers');
-            }
-
-            // --- Tab Logic ---
-            function switchTab(tabName) {
-                // Update Nav
-                document.querySelectorAll('.nav-item-custom').forEach(el => el.classList.remove('active'));
-                // Find index based on tabName to highlight correct nav item
-                const navs = document.querySelectorAll('.nav-item-custom');
-                if (tabName === 'servers') navs[0].classList.add('active');
-                if (tabName === 'detective') navs[1].classList.add('active');
-                if (tabName === 'settings') navs[2].classList.add('active');
-                if (tabName === 'user') navs[3].classList.add('active');
-
-                // Update Content
-                document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active'));
-                document.getElementById('view-' + tabName).classList.add('active');
-
-                // Specific Actions
-                if (tabName === 'detective') {
-                    initDetectiveDate();
-                    loadLogs();
-                }
-                if (tabName === 'settings') {
-                    loadNotifySettings();
-                }
-                if (tabName === 'user') {
-                    updateUserStatus();
-                }
-            }
-
-            function initDetectiveDate() {
-                // Set default time range (Last 24h) if empty
-                if (document.getElementById('log-end').value) return;
-
-                const now = new Date();
-                const yst = new Date(now - 24 * 60 * 60 * 1000);
-                const toLocal = (d) => {
-                    const off = d.getTimezoneOffset() * 60000;
-                    return new Date(d.getTime() - off).toISOString().slice(0, 16);
-                };
-                document.getElementById('log-end').value = toLocal(now);
-                document.getElementById('log-start').value = toLocal(yst);
-            }
-
-            function backToStep1() {
-                document.getElementById('login-step-1').style.display = 'block';
-                document.getElementById('login-step-2').style.display = 'none';
-                document.getElementById('login-error').style.display = 'none';
-                pendingUser = '';
-                pendingPass = '';
-            }
-
-            // Step 1: Username/Password
-            async function handleLoginStep1(e) {
-                e.preventDefault();
-                const u = document.getElementById('username').value;
-                const p = document.getElementById('password').value;
-                const errDiv = document.getElementById('login-error');
-
-                try {
-                    const res = await fetch(API_ROOT + '/login', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username: u, password: p })
-                    });
-
-                    if (res.ok) {
-                        const data = await res.json();
-                        localStorage.setItem('token', data.token);
-                        showDashboard();
-                    } else if (res.status === 403) {
-                        // 2FA Needed -> Go to Step 2
-                        pendingUser = u;
-                        pendingPass = p;
-                        document.getElementById('login-step-1').style.display = 'none';
-                        document.getElementById('login-step-2').style.display = 'block';
-                        errDiv.innerText = '';
-                        document.getElementById('otp-code').focus(); // Auto focus
-                    } else {
-                        errDiv.innerText = '用户名或密码错误';
-                        errDiv.style.display = 'block';
-                    }
-                } catch (err) {
-                    errDiv.innerText = '无法连接服务器';
-                    errDiv.style.display = 'block';
-                }
-            }
-
-            // Step 2: 2FA Code
-            async function handleLoginStep2(e) {
-                e.preventDefault();
-                const code = document.getElementById('otp-code').value;
-                const errDiv = document.getElementById('login-error');
-
-                try {
-                    const res = await fetch(API_ROOT + '/login', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username: pendingUser, password: pendingPass, code: code })
-                    });
-
-                    if (res.ok) {
-                        const data = await res.json();
-                        localStorage.setItem('token', data.token);
-                        showDashboard();
-                    } else {
-                        errDiv.innerText = '验证码错误';
-                        errDiv.style.display = 'block';
-                    }
-                } catch (err) {
-                    errDiv.innerText = '无法连接服务器';
-                    errDiv.style.display = 'block';
-                }
-            }
-
-            function logout() {
-                localStorage.removeItem('token');
-                showLogin();
-            }
-
-            async function pageChangePw() {
-                const oldP = document.getElementById('pg-pw-old').value;
-                const newP = document.getElementById('pg-pw-new').value;
-                const cfmP = document.getElementById('pg-pw-confirm').value;
-
-                if (newP !== cfmP) { alert('两次新密码输入不一致'); return; }
-                if (!oldP || !newP) { alert('请填写完整'); return; }
-
-                try {
-                    const res = await fetch(API_ROOT + '/user/password', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': localStorage.getItem('token')
-                        },
-                        body: JSON.stringify({ old_password: oldP, new_password: newP })
-                    });
-
-                    if (res.ok) {
-                        alert('修改成功，请重新登录');
-                        logout();
-                    } else {
-                        const d = await res.json();
-                        alert('修改失败: ' + (d.detail || '未知错误'));
-                    }
-                } catch (e) { alert('请求失败'); }
-            }
-
-            // --- User Status Logic ---
-            // --- User Status Logic ---
-            async function updateUserStatus() {
-                const token = localStorage.getItem('token');
-                const container = document.getElementById('btn-2fa-container');
-                const lbl = document.getElementById('lbl-2fa-status');
-                const icon = document.getElementById('icon-2fa');
-
                 if (!token) return;
+                const res = await fetch(API_ROOT + '/settings/notify', {
+                    headers: { 'Authorization': token }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('notify-enabled').checked = data.enabled;
+                    document.getElementById('notify-tg-token').value = data.tg_token;
+                    document.getElementById('notify-tg-chat').value = data.tg_chat_id;
+                    document.getElementById('notify-bark-server').value = data.bark_server;
+                    document.getElementById('notify-bark-key').value = data.bark_key;
 
-                try {
-                    const res = await fetch(API_ROOT + '/user/me', {
-                        headers: { 'Authorization': token }
-                    });
-                    if (res.ok) {
-                        const data = await res.json();
-                        // Store Agent Token Globally
-                        window.currentAgentToken = data.agent_token;
+                    // Advanced
+                    document.getElementById('notify-lat-enable').checked = data.latency_enable;
+                    document.getElementById('notify-lat-threshold').value = data.latency_threshold;
+                    document.getElementById('notify-lat-ct').checked = data.latency_isp_ct;
+                    document.getElementById('notify-lat-cu').checked = data.latency_isp_cu;
+                    document.getElementById('notify-lat-cm').checked = data.latency_isp_cm;
+                    document.getElementById('notify-rate-enable').checked = data.traffic_rate_enable;
 
-                        if (data.has_2fa) {
-                            lbl.innerText = '已启用';
-                            lbl.className = 'fw-bold text-success';
-                            icon.className = 'fas fa-shield-alt fa-3x text-success';
-                            container.innerHTML = `
+                    // Unit Conversion Logic (Bytes, 1024)
+                    let rate = data.traffic_rate_threshold; // In MB/s
+                    let unit = 'MB/s';
+                    if (rate > 0 && rate < 1) {
+                        rate = parseFloat((rate * 1024).toFixed(1));
+                        unit = 'KB/s';
+                    }
+                    document.getElementById('notify-rate-threshold').value = rate;
+                    document.getElementById('notify-rate-unit').value = unit;
+                }
+            } catch (e) { console.error("Load Notify Error", e); }
+        }
+
+        async function saveNotify() {
+            const token = localStorage.getItem('token');
+
+            // Calc Threshold (Bytes, 1024)
+            let rateVal = parseFloat(document.getElementById('notify-rate-threshold').value) || 0;
+            const rateUnit = document.getElementById('notify-rate-unit').value;
+
+            console.log("Saving Notify Debug: Val=", rateVal, "Unit=", rateUnit);
+
+            // Normalize to MB/s
+            if (rateUnit === 'KB/s') rateVal = rateVal / 1024.0;
+
+            console.log("Normalized Rate (KBps->MBps):", rateVal);
+
+            const data = {
+                enabled: document.getElementById('notify-enabled').checked,
+                tg_token: document.getElementById('notify-tg-token').value,
+                tg_chat_id: document.getElementById('notify-tg-chat').value,
+                bark_server: document.getElementById('notify-bark-server').value,
+                bark_key: document.getElementById('notify-bark-key').value,
+                // Advanced
+                latency_enable: document.getElementById('notify-lat-enable').checked,
+                latency_threshold: parseInt(document.getElementById('notify-lat-threshold').value) || 210,
+                latency_isp_ct: document.getElementById('notify-lat-ct').checked,
+                latency_isp_cu: document.getElementById('notify-lat-cu').checked,
+                latency_isp_cm: document.getElementById('notify-lat-cm').checked,
+                traffic_rate_enable: document.getElementById('notify-rate-enable').checked,
+                traffic_rate_threshold: rateVal
+            };
+            try {
+                const res = await fetch(API_ROOT + '/settings/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': token },
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                    alert('保存成功！');
+                } else alert('保存失败');
+            } catch (e) { alert('网络错误'); }
+        }
+
+        async function testNotify() {
+            const token = localStorage.getItem('token');
+            if (!confirm("确定要发送测试报警吗？请先保存配置！")) return;
+
+            try {
+                const res = await fetch(API_ROOT + '/settings/notify/test', {
+                    method: 'POST',
+                    headers: { 'Authorization': token }
+                });
+                if (res.ok) alert('测试请求已发送，请检查手机。');
+                else alert('发送失败');
+            } catch (e) { alert('网络错误'); }
+        }
+
+        // --- Auth Logic (Restored) ---
+
+        function showLogin() {
+            document.getElementById('login-section').style.display = 'flex';
+            document.getElementById('dashboard-section').style.display = 'none';
+            backToStep1(); // Reset to step 1
+        }
+
+        function showDashboard() {
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('dashboard-section').style.display = 'block';
+            loadServers();
+            // Check auth and setup UI
+            updateUserStatus();
+            // Default Tab
+            switchTab('servers');
+        }
+
+        // --- Tab Logic ---
+        function switchTab(tabName) {
+            // Update Nav
+            document.querySelectorAll('.nav-item-custom').forEach(el => el.classList.remove('active'));
+            // Find index based on tabName to highlight correct nav item
+            const navs = document.querySelectorAll('.nav-item-custom');
+            if (tabName === 'servers') navs[0].classList.add('active');
+            if (tabName === 'detective') navs[1].classList.add('active');
+            if (tabName === 'settings') navs[2].classList.add('active');
+            if (tabName === 'user') navs[3].classList.add('active');
+
+            // Update Content
+            document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-' + tabName).classList.add('active');
+
+            // Specific Actions
+            if (tabName === 'detective') {
+                initDetectiveDate();
+                loadLogs();
+            }
+            if (tabName === 'settings') {
+                loadNotifySettings();
+            }
+            if (tabName === 'user') {
+                updateUserStatus();
+            }
+        }
+
+        function initDetectiveDate() {
+            // Set default time range (Last 24h) if empty
+            if (document.getElementById('log-end').value) return;
+
+            const now = new Date();
+            const yst = new Date(now - 24 * 60 * 60 * 1000);
+            const toLocal = (d) => {
+                const off = d.getTimezoneOffset() * 60000;
+                return new Date(d.getTime() - off).toISOString().slice(0, 16);
+            };
+            document.getElementById('log-end').value = toLocal(now);
+            document.getElementById('log-start').value = toLocal(yst);
+        }
+
+        function backToStep1() {
+            document.getElementById('login-step-1').style.display = 'block';
+            document.getElementById('login-step-2').style.display = 'none';
+            document.getElementById('login-error').style.display = 'none';
+            pendingUser = '';
+            pendingPass = '';
+        }
+
+        // Step 1: Username/Password
+        async function handleLoginStep1(e) {
+            e.preventDefault();
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            const errDiv = document.getElementById('login-error');
+
+            try {
+                const res = await fetch(API_ROOT + '/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem('token', data.token);
+                    showDashboard();
+                } else if (res.status === 403) {
+                    // 2FA Needed -> Go to Step 2
+                    pendingUser = u;
+                    pendingPass = p;
+                    document.getElementById('login-step-1').style.display = 'none';
+                    document.getElementById('login-step-2').style.display = 'block';
+                    errDiv.innerText = '';
+                    document.getElementById('otp-code').focus(); // Auto focus
+                } else {
+                    errDiv.innerText = '用户名或密码错误';
+                    errDiv.style.display = 'block';
+                }
+            } catch (err) {
+                errDiv.innerText = '无法连接服务器';
+                errDiv.style.display = 'block';
+            }
+        }
+
+        // Step 2: 2FA Code
+        async function handleLoginStep2(e) {
+            e.preventDefault();
+            const code = document.getElementById('otp-code').value;
+            const errDiv = document.getElementById('login-error');
+
+            try {
+                const res = await fetch(API_ROOT + '/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: pendingUser, password: pendingPass, code: code })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem('token', data.token);
+                    showDashboard();
+                } else {
+                    errDiv.innerText = '验证码错误';
+                    errDiv.style.display = 'block';
+                }
+            } catch (err) {
+                errDiv.innerText = '无法连接服务器';
+                errDiv.style.display = 'block';
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            showLogin();
+        }
+
+        async function pageChangePw() {
+            const oldP = document.getElementById('pg-pw-old').value;
+            const newP = document.getElementById('pg-pw-new').value;
+            const cfmP = document.getElementById('pg-pw-confirm').value;
+
+            if (newP !== cfmP) { alert('两次新密码输入不一致'); return; }
+            if (!oldP || !newP) { alert('请填写完整'); return; }
+
+            try {
+                const res = await fetch(API_ROOT + '/user/password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': localStorage.getItem('token')
+                    },
+                    body: JSON.stringify({ old_password: oldP, new_password: newP })
+                });
+
+                if (res.ok) {
+                    alert('修改成功，请重新登录');
+                    logout();
+                } else {
+                    const d = await res.json();
+                    alert('修改失败: ' + (d.detail || '未知错误'));
+                }
+            } catch (e) { alert('请求失败'); }
+        }
+
+        // --- User Status Logic ---
+        // --- User Status Logic ---
+        async function updateUserStatus() {
+            const token = localStorage.getItem('token');
+            const container = document.getElementById('btn-2fa-container');
+            const lbl = document.getElementById('lbl-2fa-status');
+            const icon = document.getElementById('icon-2fa');
+
+            if (!token) return;
+
+            try {
+                const res = await fetch(API_ROOT + '/user/me', {
+                    headers: { 'Authorization': token }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    // Store Agent Token Globally
+                    window.currentAgentToken = data.agent_token;
+
+                    if (data.has_2fa) {
+                        lbl.innerText = '已启用';
+                        lbl.className = 'fw-bold text-success';
+                        icon.className = 'fas fa-shield-alt fa-3x text-success';
+                        container.innerHTML = `
                                 <button class="btn btn-outline-danger rounded-pill px-4" onclick="disable2FA()">
                                     <i class="fas fa-lock-open me-2"></i> 关闭两步验证
                                 </button>`;
-                        } else {
-                            lbl.innerText = '未启用';
-                            lbl.className = 'fw-bold text-warning';
-                            icon.className = 'fas fa-shield-alt fa-3x text-secondary';
-                            container.innerHTML = `
+                    } else {
+                        lbl.innerText = '未启用';
+                        lbl.className = 'fw-bold text-warning';
+                        icon.className = 'fas fa-shield-alt fa-3x text-secondary';
+                        container.innerHTML = `
                                 <button class="btn btn-primary rounded-pill px-4" onclick="setup2FA()">
                                     <i class="fas fa-lock me-2"></i> 开启两步验证
                                 </button>`;
-                        }
                     }
-                } catch (e) { console.error('Failed to fetch user status'); }
-            }
-
-            async function disable2FA() {
-                if (!confirm('确定要关闭两步验证吗？账户安全性将降低。')) return;
-                const token = localStorage.getItem('token');
-                try {
-                    const res = await fetch(API_ROOT + '/auth/2fa/disable', {
-                        method: 'POST',
-                        headers: { 'Authorization': token }
-                    });
-                    if (res.ok) {
-                        alert('已关闭两步验证');
-                        updateUserStatus();
-                    } else {
-                        alert('操作失败');
-                    }
-                } catch (e) { alert('网络错误'); }
-            }
-
-            // --- Dashboard Logic ---
-            async function loadServers() {
-                try {
-                    const res = await fetch(API_ROOT + '/server/list');
-                    const data = await res.json();
-                    currentServers = data.result || [];
-                    // Sort by display_order ASC (0, 1, 2...) as requested "顺序排序从0开始"
-                    currentServers.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
-                    renderList(currentServers);
-                } catch (e) {
-                    console.error(e);
                 }
+            } catch (e) { console.error('Failed to fetch user status'); }
+        }
+
+        async function disable2FA() {
+            if (!confirm('确定要关闭两步验证吗？账户安全性将降低。')) return;
+            const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(API_ROOT + '/auth/2fa/disable', {
+                    method: 'POST',
+                    headers: { 'Authorization': token }
+                });
+                if (res.ok) {
+                    alert('已关闭两步验证');
+                    updateUserStatus();
+                } else {
+                    alert('操作失败');
+                }
+            } catch (e) { alert('网络错误'); }
+        }
+
+        // --- Dashboard Logic ---
+        async function loadServers() {
+            try {
+                const res = await fetch(API_ROOT + '/server/list');
+                const data = await res.json();
+                currentServers = data.result || [];
+                // Sort by display_order ASC (0, 1, 2...) as requested "顺序排序从0开始"
+                currentServers.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+                renderList(currentServers);
+            } catch (e) {
+                console.error(e);
             }
+        }
 
-            function renderList(servers) {
-                const list = document.getElementById('server-list');
-                list.innerHTML = '';
+        function renderList(servers) {
+            const list = document.getElementById('server-list');
+            list.innerHTML = '';
 
-                servers.forEach(s => {
-                    const item = `
+            servers.forEach(s => {
+                const item = `
                 <div class="server-item">
                     <div>
                         <h5 class="mb-1">
@@ -1255,163 +1159,163 @@
                         </button>
                     </div>
                 </div>`;
-                    list.innerHTML += item;
-                });
-            }
+                list.innerHTML += item;
+            });
+        }
 
-            function openEdit(id) {
-                const s = currentServers.find(x => x.id === id);
-                if (!s) return;
+        function openEdit(id) {
+            const s = currentServers.find(x => x.id === id);
+            if (!s) return;
 
-                window.currentEditServerId = id; // Critical Fix: Set globally
+            window.currentEditServerId = id; // Critical Fix: Set globally
 
-                document.getElementById('edit-host').value = s.host;
-                document.getElementById('edit-alias').value = s.alias || '';
-                document.getElementById('edit-note').value = s.public_note || '';
-                document.getElementById('edit-expiry').value = s.expiry || '';
-                document.getElementById('edit-cc').value = (s.country_code || 'cn').toLowerCase();
-                document.getElementById('edit-order').value = s.display_order || 0;
-                document.getElementById('edit-traffic-thresh').value = s.traffic_rate_threshold || '';
+            document.getElementById('edit-host').value = s.host;
+            document.getElementById('edit-alias').value = s.alias || '';
+            document.getElementById('edit-note').value = s.public_note || '';
+            document.getElementById('edit-expiry').value = s.expiry || '';
+            document.getElementById('edit-cc').value = (s.country_code || 'cn').toLowerCase();
+            document.getElementById('edit-order').value = s.display_order || 0;
+            document.getElementById('edit-traffic-thresh').value = s.traffic_rate_threshold || '';
 
-                editModal.show();
-            }
+            editModal.show();
+        }
 
-            async function saveEdit() {
-                // Updated to use ID for matching (fixes masked IP issue)
-                const alias = document.getElementById('edit-alias').value;
-                const note = document.getElementById('edit-note').value;
-                const expiry = document.getElementById('edit-expiry').value;
-                const cc = document.getElementById('edit-cc').value;
-                const order = document.getElementById('edit-order').value;
-                const threshStr = document.getElementById('edit-traffic-thresh').value;
-                const thresh = threshStr ? parseFloat(threshStr) : null;
+        async function saveEdit() {
+            // Updated to use ID for matching (fixes masked IP issue)
+            const alias = document.getElementById('edit-alias').value;
+            const note = document.getElementById('edit-note').value;
+            const expiry = document.getElementById('edit-expiry').value;
+            const cc = document.getElementById('edit-cc').value;
+            const order = document.getElementById('edit-order').value;
+            const threshStr = document.getElementById('edit-traffic-thresh').value;
+            const thresh = threshStr ? parseFloat(threshStr) : null;
 
+            const token = localStorage.getItem('token');
+            // We use global currentEditServerId set by showEditModal
+            if (!window.currentEditServerId) return alert("Error: No server ID");
+
+            const payload = {
+                id: window.currentEditServerId, // Send ID instead of Host
+                alias: alias,
+                public_note: note,
+                expiry: expiry,
+                country_code: cc,
+                display_order: parseInt(order) || 0,
+                traffic_rate_threshold: thresh
+            };
+            console.log("Saving Config Payload:", payload);
+
+            await fetch(API_ROOT + '/server/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': token
+                },
+                body: JSON.stringify(payload)
+            });
+            editModal.hide();
+            loadServers(); // Refresh list to show new alias/flag
+        }
+
+        async function deleteServer(id) {
+            if (!id && window.currentEditServerId) id = window.currentEditServerId;
+            if (!id) return;
+
+            if (!confirm('确定要删除吗？数据将丢失！')) return;
+            const token = localStorage.getItem('token');
+
+            // Fixed Endpoint from DELETE /server to GET /admin/delete?id=...
+            await fetch(API_ROOT + '/admin/delete?id=' + id, {
+                method: 'GET',
+                headers: { 'Authorization': token }
+            });
+            editModal.hide();
+            loadServers();
+        }
+
+        // --- 2FA Logic ---
+        let tempSecret = '';
+
+        async function setup2FA() {
+            try {
                 const token = localStorage.getItem('token');
-                // We use global currentEditServerId set by showEditModal
-                if (!window.currentEditServerId) return alert("Error: No server ID");
+                if (!token) return showLogin();
 
-                const payload = {
-                    id: window.currentEditServerId, // Send ID instead of Host
-                    alias: alias,
-                    public_note: note,
-                    expiry: expiry,
-                    country_code: cc,
-                    display_order: parseInt(order) || 0,
-                    traffic_rate_threshold: thresh
-                };
-                console.log("Saving Config Payload:", payload);
+                const res = await fetch(API_ROOT + '/auth/2fa/generate', {
+                    method: 'POST',
+                    headers: { 'Authorization': token }
+                });
 
-                await fetch(API_ROOT + '/server/config', {
+                if (res.ok) {
+                    const data = await res.json();
+                    tempSecret = data.secret;
+                    document.getElementById('otp-secret').innerText = data.secret;
+                    // Render QR Code 
+                    document.getElementById('qr-img').src = "data:image/png;base64," + data.qr_code;
+
+                    otpModal.show();
+                } else {
+                    const t = await res.text();
+                    console.error('2FA Gen Error:', t);
+                    alert('无法生成 2FA配置 (登录无效或后端错误)');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('JS Error: ' + e.name + ': ' + e.message);
+            }
+        }
+
+        async function enable2FA() {
+            const code = document.getElementById('otp-verify-code').value;
+            const token = localStorage.getItem('token');
+            if (!code) return alert('请输入验证码');
+            if (!tempSecret) return alert('Secret丢失，请重新打开此窗口');
+
+            try {
+                const res = await fetch(API_ROOT + '/auth/2fa/enable', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': token
                     },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({ secret: tempSecret, code: code })
                 });
-                editModal.hide();
-                loadServers(); // Refresh list to show new alias/flag
-            }
 
-            async function deleteServer(id) {
-                if (!id && window.currentEditServerId) id = window.currentEditServerId;
-                if (!id) return;
-
-                if (!confirm('确定要删除吗？数据将丢失！')) return;
-                const token = localStorage.getItem('token');
-
-                // Fixed Endpoint from DELETE /server to GET /admin/delete?id=...
-                await fetch(API_ROOT + '/admin/delete?id=' + id, {
-                    method: 'GET',
-                    headers: { 'Authorization': token }
-                });
-                editModal.hide();
-                loadServers();
-            }
-
-            // --- 2FA Logic ---
-            let tempSecret = '';
-
-            async function setup2FA() {
-                try {
-                    const token = localStorage.getItem('token');
-                    if (!token) return showLogin();
-
-                    const res = await fetch(API_ROOT + '/auth/2fa/generate', {
-                        method: 'POST',
-                        headers: { 'Authorization': token }
-                    });
-
-                    if (res.ok) {
-                        const data = await res.json();
-                        tempSecret = data.secret;
-                        document.getElementById('otp-secret').innerText = data.secret;
-                        // Render QR Code 
-                        document.getElementById('qr-img').src = "data:image/png;base64," + data.qr_code;
-
-                        otpModal.show();
-                    } else {
-                        const t = await res.text();
-                        console.error('2FA Gen Error:', t);
-                        alert('无法生成 2FA配置 (登录无效或后端错误)');
-                    }
-                } catch (e) {
-                    console.error(e);
-                    alert('JS Error: ' + e.name + ': ' + e.message);
+                if (res.ok) {
+                    alert('2FA 已启用！下次登录请使用验证码。');
+                    otpModal.hide();
+                    updateUserStatus(); // Refresh button state
+                } else {
+                    const d = await res.json();
+                    alert('验证失败: ' + (d.detail || '验证码错误'));
                 }
+            } catch (e) {
+                alert('请求失败');
             }
+        }
 
-            async function enable2FA() {
-                const code = document.getElementById('otp-verify-code').value;
-                const token = localStorage.getItem('token');
-                if (!code) return alert('请输入验证码');
-                if (!tempSecret) return alert('Secret丢失，请重新打开此窗口');
+        // --- Add Server Logic ---
+        function showAddModal() {
+            document.getElementById('add-name').value = 'NewVPS';
+            updateCmd();
+            addModal.show();
+        }
 
-                try {
-                    const res = await fetch(API_ROOT + '/auth/2fa/enable', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': token
-                        },
-                        body: JSON.stringify({ secret: tempSecret, code: code })
-                    });
+        function updateCmd() {
+            const name = document.getElementById('add-name').value || 'MyVPS';
+            const cc = document.getElementById('add-cc').value;
+            const host = window.location.origin; // e.g. http://185.186.147.118:8081
 
-                    if (res.ok) {
-                        alert('2FA 已启用！下次登录请使用验证码。');
-                        otpModal.hide();
-                        updateUserStatus(); // Refresh button state
-                    } else {
-                        const d = await res.json();
-                        alert('验证失败: ' + (d.detail || '验证码错误'));
-                    }
-                } catch (e) {
-                    alert('请求失败');
-                }
-            }
+            // Fetch token dynamically if possible, or use placeholder if not loaded yet
+            const token = window.currentAgentToken || 'HEIHEI_REPORT_VX';
 
-            // --- Add Server Logic ---
-            function showAddModal() {
-                document.getElementById('add-name').value = 'NewVPS';
-                updateCmd();
-                addModal.show();
-            }
+            // Shell
+            const cmdShell = `bash <(curl -sL ${host}/install_agent.sh) --name "${name}" --country "${cc}"`;
+            document.getElementById('install-cmd-shell').value = cmdShell;
 
-            function updateCmd() {
-                const name = document.getElementById('add-name').value || 'MyVPS';
-                const cc = document.getElementById('add-cc').value;
-                const host = window.location.origin; // e.g. http://185.186.147.118:8081
-
-                // Fetch token dynamically if possible, or use placeholder if not loaded yet
-                const token = window.currentAgentToken || 'HEIHEI_REPORT_VX';
-
-                // Shell
-                const cmdShell = `bash <(curl -sL ${host}/install_agent.sh) --name "${name}" --country "${cc}"`;
-                document.getElementById('install-cmd-shell').value = cmdShell;
-
-                // Docker
-                // pip install requests psutil && curl agent.py | python - ...
-                const cmdDocker = `docker run -d --name heihei-agent \\
+            // Docker
+            // pip install requests psutil && curl agent.py | python - ...
+            const cmdDocker = `docker run -d --name heihei-agent \\
   --restart always \\
   --network host \\
   -v /proc:/proc \\
@@ -1421,63 +1325,63 @@
   python:3-slim \\
   /bin/sh -c "apt-get update && apt-get install -y iputils-ping curl && pip install psutil requests && curl -sL ${host}/agent.py | python3 - --name '${name}' --country '${cc}' --server '${host}/api/v1/report' --token '${token}'"`;
 
-                document.getElementById('install-cmd-docker').value = cmdDocker;
+            document.getElementById('install-cmd-docker').value = cmdDocker;
+        }
+
+        function copyCmd(id) {
+            const el = document.getElementById(id);
+            el.select();
+            document.execCommand('copy');
+            alert('复制成功！');
+        }
+
+        // --- Log Detective Logic ---
+        // toggleDetectiveMode Replaced by switchTab('detective')
+
+        async function loadLogs() {
+            const startStr = document.getElementById('log-start').value;
+            const endStr = document.getElementById('log-end').value;
+            const token = localStorage.getItem('token'); // Fix: Get token here
+
+            let url = API_ROOT + '/alerts/history?limit=100';
+            if (startStr) url += `&start_ts=${Math.floor(new Date(startStr).getTime() / 1000)}`;
+            if (endStr) url += `&end_ts=${Math.floor(new Date(endStr).getTime() / 1000)}`;
+
+            // Show loading
+            document.getElementById('log-timeline').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+
+            try {
+                const res = await fetch(url, { headers: { 'Authorization': token } });
+                const data = await res.json();
+                renderLogs(data);
+            } catch (e) {
+                alert('Fetch Logs Failed: ' + e);
+            }
+        }
+
+        function renderLogs(logs) {
+            const container = document.getElementById('log-timeline');
+            if (!logs || logs.length === 0) {
+                container.innerHTML = '<div class="text-center py-5 text-muted">暂无相关报警记录</div>';
+                return;
             }
 
-            function copyCmd(id) {
-                const el = document.getElementById(id);
-                el.select();
-                document.execCommand('copy');
-                alert('复制成功！');
-            }
+            let html = '<div class="list-group">';
+            logs.forEach(log => {
+                const date = new Date(log.ts * 1000).toLocaleString();
+                let icon = 'fa-bell';
+                let color = 'text-primary';
+                let badge = 'bg-primary';
 
-            // --- Log Detective Logic ---
-            // toggleDetectiveMode Replaced by switchTab('detective')
+                if (log.type === 'OFFLINE') { icon = 'fa-power-off'; color = 'text-danger'; badge = 'bg-danger'; }
+                if (log.type === 'ONLINE') { icon = 'fa-plug'; color = 'text-success'; badge = 'bg-success'; }
+                if (log.type === 'TRAFFIC') { icon = 'fa-tachometer-alt'; color = 'text-warning'; badge = 'bg-warning text-dark'; }
 
-            async function loadLogs() {
-                const startStr = document.getElementById('log-start').value;
-                const endStr = document.getElementById('log-end').value;
-                const token = localStorage.getItem('token'); // Fix: Get token here
+                // Store context in dataset (escaped)
+                const ctxStr = encodeURIComponent(JSON.stringify(log.context));
+                const contentStr = encodeURIComponent(log.content);
 
-                let url = API_ROOT + '/alerts/history?limit=100';
-                if (startStr) url += `&start_ts=${Math.floor(new Date(startStr).getTime() / 1000)}`;
-                if (endStr) url += `&end_ts=${Math.floor(new Date(endStr).getTime() / 1000)}`;
-
-                // Show loading
-                document.getElementById('log-timeline').innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
-
-                try {
-                    const res = await fetch(url, { headers: { 'Authorization': token } });
-                    const data = await res.json();
-                    renderLogs(data);
-                } catch (e) {
-                    alert('Fetch Logs Failed: ' + e);
-                }
-            }
-
-            function renderLogs(logs) {
-                const container = document.getElementById('log-timeline');
-                if (!logs || logs.length === 0) {
-                    container.innerHTML = '<div class="text-center py-5 text-muted">暂无相关报警记录</div>';
-                    return;
-                }
-
-                let html = '<div class="list-group">';
-                logs.forEach(log => {
-                    const date = new Date(log.ts * 1000).toLocaleString();
-                    let icon = 'fa-bell';
-                    let color = 'text-primary';
-                    let badge = 'bg-primary';
-
-                    if (log.type === 'OFFLINE') { icon = 'fa-power-off'; color = 'text-danger'; badge = 'bg-danger'; }
-                    if (log.type === 'ONLINE') { icon = 'fa-plug'; color = 'text-success'; badge = 'bg-success'; }
-                    if (log.type === 'TRAFFIC') { icon = 'fa-tachometer-alt'; color = 'text-warning'; badge = 'bg-warning text-dark'; }
-
-                    // Store context in dataset (escaped)
-                    const ctxStr = encodeURIComponent(JSON.stringify(log.context));
-                    const contentStr = encodeURIComponent(log.content);
-
-                    html += `
+                html += `
                 <a href="#" class="list-group-item list-group-item-action p-3" onclick="showLogDetail(this)" data-content="${contentStr}" data-ctx="${ctxStr}">
                     <div class="d-flex w-100 justify-content-between align-items-center">
                         <h6 class="mb-1 ${color}"><i class="fas ${icon} me-2"></i>${log.title}</h6>
@@ -1487,42 +1391,42 @@
                     <small>ID: ${log.svid.substring(0, 8)}... <span class="badge ${badge} rounded-pill ms-2">${log.type}</span></small>
                 </a>
                 `;
-                });
-                html += '</div>';
-                container.innerHTML = html;
-            }
+            });
+            html += '</div>';
+            container.innerHTML = html;
+        }
 
-            const logModal = new bootstrap.Modal(document.getElementById('logModal'));
-            function showLogDetail(el) {
-                const content = decodeURIComponent(el.getAttribute('data-content'));
-                const ctx = JSON.parse(decodeURIComponent(el.getAttribute('data-ctx')));
+        const logModal = new bootstrap.Modal(document.getElementById('logModal'));
+        function showLogDetail(el) {
+            const content = decodeURIComponent(el.getAttribute('data-content'));
+            const ctx = JSON.parse(decodeURIComponent(el.getAttribute('data-ctx')));
 
-                document.getElementById('log-detail-content').innerText = content;
-                document.getElementById('log-detail-json').innerText = JSON.stringify(ctx, null, 2);
-                logModal.show();
-            }
+            document.getElementById('log-detail-content').innerText = content;
+            document.getElementById('log-detail-json').innerText = JSON.stringify(ctx, null, 2);
+            logModal.show();
+        }
 
-            // Init
-            checkAuth();
+        // Init
+        checkAuth();
 
-            // Dark Mode Toggle Logic
-            function toggleTheme() {
-                const current = document.documentElement.getAttribute('data-theme');
-                const next = current === 'dark' ? 'light' : 'dark';
-                document.documentElement.setAttribute('data-theme', next);
-                localStorage.setItem('theme', next);
+        // Dark Mode Toggle Logic
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
 
-                // Update Text (Optional)
-                const i = document.getElementById('theme-icon');
-                if (i) i.className = next === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-            }
+            // Update Text (Optional)
+            const i = document.getElementById('theme-icon');
+            if (i) i.className = next === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        }
 
-            // Init Button Icon
-            const curTheme = localStorage.getItem('theme') || 'light';
-            const icon = document.getElementById('theme-icon');
-            if (icon) icon.className = curTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        // Init Button Icon
+        const curTheme = localStorage.getItem('theme') || 'light';
+        const icon = document.getElementById('theme-icon');
+        if (icon) icon.className = curTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
 
-        </script>
+    </script>
 </body>
 
 </html>
