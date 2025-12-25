@@ -834,8 +834,10 @@ async def change_password(req: ContentChangePassword, token: str = Header(None, 
         await db.commit()
     return {"status": "ok"}
 
-@app.get("/api/v1/alerts/history", dependencies=[Depends(get_current_username)])
-async def get_alert_history(limit: int = 50, start_ts: Optional[int] = None, end_ts: Optional[int] = None):
+@app.get("/api/v1/alerts/history")
+async def get_alert_history(limit: int = 50, start_ts: Optional[int] = None, end_ts: Optional[int] = None, token: str = Header(None, alias="Authorization")):
+    if token != SECRET_TOKEN:
+        raise HTTPException(status_code=401, detail="Unauthorized")
     try:
         import json
         with sqlite3.connect("data.db") as conn:
