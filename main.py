@@ -467,7 +467,7 @@ async def load_cache():
 def record_alert(svid: str, alert_type: str, title: str, content: str, context: dict):
     try:
         import json
-        with sqlite3.connect("data.db") as conn:
+        with sqlite3.connect(DB_PATH) as conn:
             c = conn.cursor()
             c.execute("INSERT INTO alert_history (ts, svid, type, title, content, context) VALUES (?, ?, ?, ?, ?, ?)",
                       (int(time.time()), svid, alert_type, title, content, json.dumps(context)))
@@ -783,6 +783,15 @@ async def update_config(payload: ConfigUpdatePayload, token: str = Header(None, 
         await db.commit()
     return {"status": "ok"}
 
+ # --- Save Config ---
+def save_server_config(svid: str, cfg: ServerConfig):
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute("INSERT OR REPLACE INTO servers (id, host, alias, public_note, expiry, country_code, display_order, traffic_rate_threshold) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                  (svid, cfg.host, cfg.alias, cfg.public_note, cfg.expiry, cfg.country_code, cfg.display_order, cfg.traffic_rate_threshold))
+        conn.commit()
+    return {"status": "ok"}
+
 # 5. Admin Delete
 @app.get("/api/v1/admin/delete")
 async def admin_delete(id: str = Query(..., description="Server ID"), token: str = Header(None, alias="Authorization")):
@@ -871,7 +880,7 @@ async def get_alert_history(limit: int = 50, start_ts: Optional[int] = None, end
         raise HTTPException(status_code=401, detail="Unauthorized")
     try:
         import json
-        with sqlite3.connect("data.db") as conn:
+        with sqlite3.connect(DB_PATH) as conn:
             c = conn.cursor()
             query = "SELECT id, ts, svid, type, title, content, context FROM alert_history WHERE 1=1"
             params = []
