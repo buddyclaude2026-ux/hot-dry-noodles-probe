@@ -506,61 +506,60 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Tab: User Center -->
-        <div id="view-user" class="section-view">
-            <div class="page-title">
-                <span><i class="fas fa-user-shield text-info me-2"></i>用户中心</span>
-            </div>
 
-            <div class="row">
-                <div class="col-md-6">
-                    <!-- 2FA Card -->
-                    <div class="card-custom h-100">
-                        <h5 class="mb-4"><i class="fas fa-shield-alt text-primary me-2"></i>两步验证 (2FA)</h5>
+                <!-- Tab: User Center -->
+                <div id="view-user" class="section-view">
+                    <div class="page-title">
+                        <span><i class="fas fa-user-shield text-info me-2"></i>用户中心</span>
+                    </div>
 
-                        <div id="2fa-status-area" class="text-center py-4">
-                            <div class="mb-3">
-                                <i class="fas fa-shield-alt fa-3x text-primary" id="icon-2fa"></i>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <!-- 2FA Card -->
+                            <div class="card-custom h-100">
+                                <h5 class="mb-4"><i class="fas fa-shield-alt text-primary me-2"></i>两步验证 (2FA)</h5>
+
+                                <div id="2fa-status-area" class="text-center py-4">
+                                    <div class="mb-3">
+                                        <i class="fas fa-shield-alt fa-3x text-primary" id="icon-2fa"></i>
+                                    </div>
+                                    <p class="text-muted">当前状态: <span id="lbl-2fa-status" class="fw-bold">...</span></p>
+
+                                    <!-- Dynamic Button Container -->
+                                    <div id="btn-2fa-container"></div>
+                                </div>
                             </div>
-                            <p class="text-muted">当前状态: <span id="lbl-2fa-status" class="fw-bold">...</span></p>
+                        </div>
 
-                            <!-- Dynamic Button Container -->
-                            <div id="btn-2fa-container"></div>
+                        <div class="col-md-6">
+                            <!-- Pwd Card -->
+                            <div class="card-custom h-100">
+                                <h5 class="mb-4"><i class="fas fa-key text-warning me-2"></i>修改密码</h5>
+                                <div class="mb-3">
+                                    <label class="small text-muted">旧密码</label>
+                                    <input type="password" id="pg-pw-old" class="form-control">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="small text-muted">新密码</label>
+                                    <input type="password" id="pg-pw-new" class="form-control">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="small text-muted">确认新密码</label>
+                                    <input type="password" id="pg-pw-confirm" class="form-control">
+                                </div>
+                                <div class="text-end">
+                                    <button class="btn btn-primary rounded-pill px-4" onclick="pageChangePw()">
+                                        提交修改
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="col-md-6">
-                    <!-- Pwd Card -->
-                    <div class="card-custom h-100">
-                        <h5 class="mb-4"><i class="fas fa-key text-warning me-2"></i>修改密码</h5>
-                        <div class="mb-3">
-                            <label class="small text-muted">旧密码</label>
-                            <input type="password" id="pg-pw-old" class="form-control">
-                        </div>
-                        <div class="mb-3">
-                            <label class="small text-muted">新密码</label>
-                            <input type="password" id="pg-pw-new" class="form-control">
-                        </div>
-                        <div class="mb-3">
-                            <label class="small text-muted">确认新密码</label>
-                            <input type="password" id="pg-pw-confirm" class="form-control">
-                        </div>
-                        <div class="text-end">
-                            <button class="btn btn-primary rounded-pill px-4" onclick="pageChangePw()">
-                                提交修改
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
-
-    </div>
-    </div>
     </div>
 
     <!-- Edit Modal -->
