@@ -509,11 +509,42 @@ async def persist_server(data: ServerStatus):
     except Exception as e:
         logger.error(f"DB Persist Error: {e}")
 
+# --- Synchronous DB Init (Fallback) ---
+def ensure_db_sync():
+    try:
+        import sqlite3
+        with sqlite3.connect(DB_PATH) as conn:
+            # Alert History
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS alert_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ts INTEGER,
+                    svid TEXT,
+                    type TEXT,
+                    title TEXT,
+                    content TEXT,
+                    context TEXT
+                )
+            ''')
+            # Servers (Just in case)
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS servers (
+                    host TEXT PRIMARY KEY,
+                    data TEXT,
+                    last_seen INTEGER
+                )
+            ''')
+            conn.commit()
+            logger.info("Sync DB Schema check passed.")
+    except Exception as e:
+        logger.error(f"Sync DB Init Failed: {e}")
+
 # --- App Lifecycle ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    await init_db()
+    await asyncio.to_thread(ensure_db_sync) # Run sync init first
+    await init_db() # Run async init next (for others)
     await load_cache()
     await load_tokens() # Load tokens
     await load_system_settings() # Load Notify Config
