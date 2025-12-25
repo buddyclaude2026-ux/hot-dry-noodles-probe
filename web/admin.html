@@ -275,7 +275,7 @@
                 <!-- Tab: Servers -->
                 <div id="view-servers" class="section-view active">
                     <div class="page-title">
-                        <span><i class="fas fa-server text-primary me-2"></i>服务器管理</span>
+                        <span><i class="fas fa-server text-primary me-2"></i>前台首页</span>
                         <button class="btn btn-primary rounded-pill px-4" onclick="showAddModal()">
                             <i class="fas fa-plus me-2"></i> 添加服务器
                         </button>
@@ -491,67 +491,68 @@
 
     <!-- Edit Modal -->
     <div class="modal fade" id="editModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-header">
-                <h5 class="modal-title">编辑服务器配置</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="edit-host">
-                <div class="mb-3">
-                    <label class="form-label">机器别名 (Alias)</label>
-                    <input type="text" id="edit-alias" class="form-control" placeholder="例如: 搬瓦工 DC6">
-                    <div class="form-text">设置后将优先显示此别名，而非机器原始 Hostname</div>
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">编辑服务器配置</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">价格标签</label>
-                        <input type="text" id="edit-note" class="form-control" placeholder="例如: $49.9/年">
+                <div class="modal-body">
+                    <input type="hidden" id="edit-host">
+                    <div class="mb-3">
+                        <label class="form-label">机器别名 (Alias)</label>
+                        <input type="text" id="edit-alias" class="form-control" placeholder="例如: 搬瓦工 DC6">
+                        <div class="form-text">设置后将优先显示此别名，而非机器原始 Hostname</div>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">到期时间</label>
-                        <input type="text" id="edit-expiry" class="form-control" placeholder="例如: 2025-12-31">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">价格标签</label>
+                            <input type="text" id="edit-note" class="form-control" placeholder="例如: $49.9/年">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">到期时间</label>
+                            <input type="text" id="edit-expiry" class="form-control" placeholder="例如: 2025-12-31">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">地区 (图标)</label>
+                        <select id="edit-cc" class="form-select">
+                            <option value="">🤖 自动探测 (Auto)</option>
+                            <option value="cn">🇨🇳 中国 (CN)</option>
+                            <option value="hk">🇭🇰 香港 (HK)</option>
+                            <option value="us">🇺🇸 美国 (US)</option>
+                            <option value="jp">🇯🇵 日本 (JP)</option>
+                            <option value="kr">🇰🇷 韩国 (KR)</option>
+                            <option value="sg">🇸🇬 新加坡 (SG)</option>
+                            <option value="de">🇩🇪 德国 (DE)</option>
+                            <option value="uk">🇬🇧 英国 (UK)</option>
+                            <option value="others">🌐 其他</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">排序权重</label>
+                            <input type="number" id="edit-order" class="form-control" value="0">
+                            <div class="form-text">数字越大越靠前</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">流量报警阈值 (MB/s)</label>
+                            <input type="number" id="edit-traffic-thresh" class="form-control"
+                                placeholder="Global Default" step="0.1">
+                            <div class="form-text">为空则使用全局</div>
+                        </div>
                     </div>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">地区 (图标)</label>
-                    <select id="edit-cc" class="form-select">
-                        <option value="">🤖 自动探测 (Auto)</option>
-                        <option value="cn">🇨🇳 中国 (CN)</option>
-                        <option value="hk">🇭🇰 香港 (HK)</option>
-                        <option value="us">🇺🇸 美国 (US)</option>
-                        <option value="jp">🇯🇵 日本 (JP)</option>
-                        <option value="kr">🇰🇷 韩国 (KR)</option>
-                        <option value="sg">🇸🇬 新加坡 (SG)</option>
-                        <option value="de">🇩🇪 德国 (DE)</option>
-                        <option value="uk">🇬🇧 英国 (UK)</option>
-                        <option value="others">🌐 其他</option>
-                    </select>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" onclick="saveEdit()">保存配置</button>
                 </div>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">排序权重</label>
-                        <input type="number" id="edit-order" class="form-control" value="0">
-                        <div class="form-text">数字越大越靠前</div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">流量报警阈值 (MB/s)</label>
-                        <input type="number" id="edit-traffic-thresh" class="form-control" placeholder="Global Default"
-                            step="0.1">
-                        <div class="form-text">为空则使用全局</div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" onclick="saveEdit()">保存配置</button>
             </div>
         </div>
-    </div>
     </div>
 
     <!-- 2FA Setup Modal -->
     <div class="modal fade" id="otpModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">设置两步验证 (2FA)</h5>
@@ -577,7 +578,7 @@
 
     <!-- Log Context Modal -->
     <div class="modal fade" id="logModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header bg-light">
                     <h5 class="modal-title"><i class="fas fa-file-invoice me-2"></i>证据详情</h5>
@@ -600,7 +601,7 @@
 
     <!-- Password Modal -->
     <div class="modal fade" id="pwModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">修改密码</h5>
@@ -629,7 +630,7 @@
 
     <!-- Add Server Modal -->
     <div class="modal fade" id="addModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">添加服务器 (Install Agent)</h5>
@@ -702,7 +703,7 @@
 
     <!-- Notification Settings Modal -->
     <div class="modal fade" id="notifyModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">🔔 通知设置</h5>
@@ -1133,6 +1134,8 @@
                     const res = await fetch(API_ROOT + '/server/list');
                     const data = await res.json();
                     currentServers = data.result || [];
+                    // Sort by display_order DESC
+                    currentServers.sort((a, b) => (b.display_order || 0) - (a.display_order || 0));
                     renderList(currentServers);
                 } catch (e) {
                     console.error(e);
@@ -1147,9 +1150,13 @@
                     const item = `
                 <div class="server-item">
                     <div>
-                        <h5 class="mb-1">${s.name || s.host} ${s.alias ? '<span class="badge bg-info text-dark">别名</span>' : ''}</h5>
-                        <div class="text-muted small">${s.host}</div>
-                        <div class="mt-1">
+                        <h5 class="mb-1">
+                            <span class="badge bg-secondary me-2">NO.${s.display_order || 0}</span>
+                            ${s.name || s.host} 
+                            ${s.alias ? '<span class="badge bg-info text-dark ms-1">别名</span>' : ''}
+                        </h5>
+                        <div class="text-muted small ms-1">${s.host}</div>
+                        <div class="mt-1 ms-1">
                              <span class="badge bg-light text-dark border">${s.country_code || 'CN'}</span>
                              <span class="badge bg-light text-dark border">${s.public_note || '-'}</span>
                              <span class="badge bg-light text-dark border">${s.expiry || '-'}</span>
