@@ -104,17 +104,67 @@
             background: #7c3aed;
         }
 
-        /* --- Dashboard --- */
+        /* --- Layout --- */
         #dashboard-section {
             display: none;
-            padding: 40px;
+            height: 100vh;
         }
 
-        .dash-header {
+        .sidebar {
+            width: 250px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+            padding: 20px;
+            flex-shrink: 0;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            padding: 30px;
+            overflow-y: auto;
+            background-color: transparent;
+            /* Use body bg */
+        }
+
+        .nav-item-custom {
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 10px;
+            cursor: pointer;
+            color: #64748b;
+            font-weight: 500;
+            display: flex;
             align-items: center;
-            margin-bottom: 30px;
+            transition: all 0.2s;
+        }
+
+        .nav-item-custom:hover {
+            background-color: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .nav-item-custom.active {
+            background-color: #f3e8ff;
+            /* Light Purple */
+            color: #7c3aed;
+            /* Brand Purple */
+            font-weight: 600;
+        }
+
+        .nav-item-custom i {
+            width: 24px;
+            margin-right: 10px;
+            text-align: center;
+        }
+
+        .section-view {
+            display: none;
+        }
+
+        .section-view.active {
+            display: block;
         }
 
         .server-item {
@@ -128,8 +178,21 @@
             align-items: center;
         }
 
-        .actions button {
-            margin-left: 10px;
+        .page-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-custom {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
+            padding: 24px;
+            margin-bottom: 20px;
         }
     </style>
 </head>
@@ -173,136 +236,317 @@
         </div>
     </div>
 
-    <!-- Dashboard Section -->
+    <!-- Dashboard Section (Sidebar Layout) -->
     <div id="dashboard-section">
-        <div class="container-fluid" style="max-width: 1200px">
-            <div class="dash-header">
-                <h2><i class="fas fa-server me-2 text-primary"></i>服务器管理</h2>
-                <div>
-                    <button class="btn btn-dark btn-sm me-2" onclick="toggleDetectiveMode()">
-                        <i class="fas fa-user-secret"></i> 侦探模式
+        <div class="d-flex h-100">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="mb-4 px-2">
+                    <h5 class="fw-bold" style="color:var(--bg-purple)">热干面探针 <span class="badge bg-light text-dark ms-1"
+                            style="font-size:10px">PRO</span></h5>
+                </div>
+
+                <div class="nav-item-custom active" onclick="switchTab('servers')">
+                    <i class="fas fa-server"></i> 机器列表
+                </div>
+                <div class="nav-item-custom" onclick="switchTab('detective')">
+                    <i class="fas fa-user-secret"></i> 侦探模式
+                </div>
+                <div class="nav-item-custom" onclick="switchTab('settings')">
+                    <i class="fas fa-bell"></i> 报警设置
+                </div>
+                <div class="nav-item-custom" onclick="switchTab('user')">
+                    <i class="fas fa-user-shield"></i> 用户中心
+                </div>
+
+                <div class="mt-auto px-2">
+                    <button class="btn btn-outline-danger w-100 btn-sm rounded-pill" onclick="logout()">
+                        <i class="fas fa-sign-out-alt me-2"></i> 退出登录
                     </button>
-                    <button class="btn btn-success btn-sm me-2" onclick="showAddModal()">
-                        <i class="fas fa-plus"></i> 添加服务器
-                    </button>
-                    <!-- Dynamic 2FA Button -->
-                    <button id="btn-2fa-toggle" class="btn btn-outline-info btn-sm" onclick="setup2FA()">
-                        <i class="fas fa-shield-alt"></i> 两步验证
-                    </button>
-                    <button class="btn btn-outline-warning btn-sm ms-2" onclick="pwModal.show()">
-                        <i class="fas fa-key"></i> 修改密码
-                    </button>
-                    <button class="btn btn-outline-danger btn-sm ms-2" onclick="logout()">
-                        <i class="fas fa-sign-out-alt"></i> 退出
-                    </button>
-                    <button class="btn btn-warning btn-sm ms-2" onclick="showNotifySettings()">
-                        <i class="fas fa-bell"></i> 报警设置
-                    </button>
-                    <button class="btn btn-primary btn-sm ms-2" onclick="window.location.href='/'">
-                        <i class="fas fa-home"></i> 前台
-                    </button>
+                    <a href="/" class="btn btn-light w-100 btn-sm rounded-pill mt-2 text-muted">
+                        <i class="fas fa-external-link-alt me-2"></i> 前台首页
+                    </a>
                 </div>
             </div>
 
-            添加服务器请在目标机器运行 One-Liner 脚本。
-        </div>
+            <!-- Main Content -->
+            <div class="main-content">
 
-        <!-- Server List View -->
-        <div id="server-list">
-            <!-- Servers Injected Here -->
-        </div>
-
-        <!-- Log Detective View (Hidden by default) -->
-        <div id="log-view" style="display:none">
-            <div class="card p-3 mb-4">
-                <div class="row align-items-end">
-                    <div class="col-md-3">
-                        <label class="form-label small text-muted">开始时间</label>
-                        <input type="datetime-local" id="log-start" class="form-control">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small text-muted">结束时间</label>
-                        <input type="datetime-local" id="log-end" class="form-control">
-                    </div>
-                    <div class="col-md-2">
-                        <button class="btn btn-primary w-100" onclick="loadLogs()">
-                            <i class="fas fa-search"></i> 搜索证据
+                <!-- Tab: Servers -->
+                <div id="view-servers" class="section-view active">
+                    <div class="page-title">
+                        <span><i class="fas fa-server text-primary me-2"></i>服务器管理</span>
+                        <button class="btn btn-primary rounded-pill px-4" onclick="showAddModal()">
+                            <i class="fas fa-plus me-2"></i> 添加服务器
                         </button>
                     </div>
-                </div>
-            </div>
 
-            <div id="log-timeline">
-                <!-- Logs Injected Here -->
-                <div class="text-center text-muted py-5">
-                    <i class="fas fa-search fa-3x mb-3 opacity-25"></i>
-                    <p>选择时间范围开始搜寻...</p>
+                    <div id="server-list">
+                        <!-- Injected JS -->
+                    </div>
                 </div>
+
+                <!-- Tab: Detective -->
+                <div id="view-detective" class="section-view">
+                    <div class="page-title">
+                        <span><i class="fas fa-user-secret text-dark me-2"></i>侦探模式</span>
+                    </div>
+
+                    <div class="card-custom">
+                        <div class="row align-items-end g-3">
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted">开始时间</label>
+                                <input type="datetime-local" id="log-start" class="form-control">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted">结束时间</label>
+                                <input type="datetime-local" id="log-end" class="form-control">
+                            </div>
+                            <div class="col-md-2">
+                                <button class="btn btn-primary w-100" onclick="loadLogs()">
+                                    <i class="fas fa-search"></i> 搜索证据
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="log-timeline">
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-search fa-3x mb-3 opacity-25"></i>
+                            <p>选择时间范围开始搜寻...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Settings (Embedded) -->
+                <div id="view-settings" class="section-view">
+                    <div class="page-title">
+                        <span><i class="fas fa-bell text-warning me-2"></i>报警设置</span>
+                        <button class="btn btn-success rounded-pill px-4" onclick="saveNotify()">
+                            <i class="fas fa-save me-2"></i> 保存配置
+                        </button>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="card-custom">
+                                <div class="form-check form-switch mb-4">
+                                    <input class="form-check-input" type="checkbox" id="notify-enabled"
+                                        style="width: 3em; height: 1.5em;">
+                                    <label class="form-check-label ms-2 fw-bold" for="notify-enabled"
+                                        style="font-size:1.1em; padding-top:2px">启用全局报警通知</label>
+                                </div>
+
+                                <h6 class="text-primary border-bottom pb-2 mb-3"><i class="fab fa-telegram"></i>
+                                    Telegram 推送</h6>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Bot Token</label>
+                                        <input type="text" class="form-control" id="notify-tg-token"
+                                            placeholder="123456:ABC-DEF...">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Chat ID</label>
+                                        <input type="text" class="form-control" id="notify-tg-chat"
+                                            placeholder="-100123456789">
+                                    </div>
+                                </div>
+
+                                <h6 class="text-success border-bottom pb-2 mb-3 mt-4"><i class="fas fa-bullhorn"></i>
+                                    Bark (iOS)</h6>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Server URL</label>
+                                        <input type="text" class="form-control" id="notify-bark-server"
+                                            placeholder="https://api.day.app">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small">Device Key</label>
+                                        <input type="text" class="form-control" id="notify-bark-key"
+                                            placeholder="Your Device Key">
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-end">
+                                    <button class="btn btn-outline-secondary btn-sm" onclick="testNotify()">
+                                        <i class="fas fa-paper-plane me-1"></i> 发送测试消息
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="card-custom">
+                                <h6 class="text-danger border-bottom pb-2 mb-3"><i class="fas fa-heartbeat"></i> 高级触发规则
+                                </h6>
+
+                                <div class="mb-4">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="notify-lat-enable">
+                                        <label class="form-check-label fw-bold">启用高延迟报警</label>
+                                    </div>
+                                    <div class="row mt-2 ps-4">
+                                        <div class="col-md-4">
+                                            <label class="small text-muted">阈值 (ms)</label>
+                                            <input type="number" class="form-control form-control-sm"
+                                                id="notify-lat-threshold" value="210">
+                                        </div>
+                                        <div class="col-md-8">
+                                            <label class="small text-muted d-block">监控线路 (勾选生效)</label>
+                                            <div class="pt-1">
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" id="notify-lat-ct">
+                                                    <span class="small">电信</span>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" id="notify-lat-cu">
+                                                    <span class="small">联通</span>
+                                                </div>
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input" type="checkbox" id="notify-lat-cm">
+                                                    <span class="small">移动</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="notify-rate-enable">
+                                        <label class="form-check-label fw-bold">启用流量速率报警</label>
+                                    </div>
+                                    <div class="row mt-2 ps-4">
+                                        <div class="col-md-6">
+                                            <label class="small text-muted">宽带阈值</label>
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" class="form-control" id="notify-rate-threshold"
+                                                    value="5" step="0.1">
+                                                <select class="form-select" id="notify-rate-unit"
+                                                    style="max-width: 80px;">
+                                                    <option value="MB/s">MB/s</option>
+                                                    <option value="KB/s">KB/s</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: User Center -->
+                <div id="view-user" class="section-view">
+                    <div class="page-title">
+                        <span><i class="fas fa-user-shield text-info me-2"></i>用户中心</span>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <!-- 2FA Card -->
+                            <div class="card-custom h-100">
+                                <h5 class="mb-4"><i class="fas fa-shield-alt text-primary me-2"></i>两步验证 (2FA)</h5>
+
+                                <div id="2fa-status-area" class="text-center py-4">
+                                    <div class="mb-3">
+                                        <i class="fas fa-lock fa-3x text-success"></i>
+                                    </div>
+                                    <p class="text-muted">当前状态: <span id="lbl-2fa-status" class="fw-bold">检测中...</span>
+                                    </p>
+                                    <button class="btn btn-outline-primary rounded-pill px-4" onclick="setup2FA()">
+                                        <i class="fas fa-cog me-2"></i> 配置 / 重置
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <!-- Pwd Card -->
+                            <div class="card-custom h-100">
+                                <h5 class="mb-4"><i class="fas fa-key text-warning me-2"></i>修改密码</h5>
+                                <div class="mb-3">
+                                    <label class="small text-muted">旧密码</label>
+                                    <input type="password" id="pg-pw-old" class="form-control">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="small text-muted">新密码</label>
+                                    <input type="password" id="pg-pw-new" class="form-control">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="small text-muted">确认新密码</label>
+                                    <input type="password" id="pg-pw-confirm" class="form-control">
+                                </div>
+                                <div class="text-end">
+                                    <button class="btn btn-primary rounded-pill px-4" onclick="pageChangePw()">
+                                        提交修改
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
-
-    </div>
     </div>
 
     <!-- Edit Modal -->
     <div class="modal fade" id="editModal" tabindex="-1">
         <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">编辑服务器配置</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header">
+                <h5 class="modal-title">编辑服务器配置</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-host">
+                <div class="mb-3">
+                    <label class="form-label">机器别名 (Alias)</label>
+                    <input type="text" id="edit-alias" class="form-control" placeholder="例如: 搬瓦工 DC6">
+                    <div class="form-text">设置后将优先显示此别名，而非机器原始 Hostname</div>
                 </div>
-                <div class="modal-body">
-                    <input type="hidden" id="edit-host">
-                    <div class="mb-3">
-                        <label class="form-label">机器别名 (Alias)</label>
-                        <input type="text" id="edit-alias" class="form-control" placeholder="例如: 搬瓦工 DC6">
-                        <div class="form-text">设置后将优先显示此别名，而非机器原始 Hostname</div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">价格标签</label>
+                        <input type="text" id="edit-note" class="form-control" placeholder="例如: $49.9/年">
                     </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">价格标签</label>
-                            <input type="text" id="edit-note" class="form-control" placeholder="例如: $49.9/年">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">到期时间</label>
-                            <input type="text" id="edit-expiry" class="form-control" placeholder="例如: 2025-12-31">
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">地区 (图标)</label>
-                        <select id="edit-cc" class="form-select">
-                            <option value="">🤖 自动探测 (Auto)</option>
-                            <option value="cn">🇨🇳 中国 (CN)</option>
-                            <option value="hk">🇭🇰 香港 (HK)</option>
-                            <option value="us">🇺🇸 美国 (US)</option>
-                            <option value="jp">🇯🇵 日本 (JP)</option>
-                            <option value="kr">🇰🇷 韩国 (KR)</option>
-                            <option value="sg">🇸🇬 新加坡 (SG)</option>
-                            <option value="de">🇩🇪 德国 (DE)</option>
-                            <option value="uk">🇬🇧 英国 (UK)</option>
-                            <option value="others">🌐 其他</option>
-                        </select>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">排序权重</label>
-                            <input type="number" id="edit-order" class="form-control" value="0">
-                            <div class="form-text">数字越大越靠前</div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">流量报警阈值 (MB/s)</label>
-                            <input type="number" id="edit-traffic-thresh" class="form-control"
-                                placeholder="Global Default" step="0.1">
-                            <div class="form-text">为空则使用全局</div>
-                        </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">到期时间</label>
+                        <input type="text" id="edit-expiry" class="form-control" placeholder="例如: 2025-12-31">
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" onclick="saveEdit()">保存配置</button>
+                <div class="mb-3">
+                    <label class="form-label">地区 (图标)</label>
+                    <select id="edit-cc" class="form-select">
+                        <option value="">🤖 自动探测 (Auto)</option>
+                        <option value="cn">🇨🇳 中国 (CN)</option>
+                        <option value="hk">🇭🇰 香港 (HK)</option>
+                        <option value="us">🇺🇸 美国 (US)</option>
+                        <option value="jp">🇯🇵 日本 (JP)</option>
+                        <option value="kr">🇰🇷 韩国 (KR)</option>
+                        <option value="sg">🇸🇬 新加坡 (SG)</option>
+                        <option value="de">🇩🇪 德国 (DE)</option>
+                        <option value="uk">🇬🇧 英国 (UK)</option>
+                        <option value="others">🌐 其他</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">排序权重</label>
+                        <input type="number" id="edit-order" class="form-control" value="0">
+                        <div class="form-text">数字越大越靠前</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">流量报警阈值 (MB/s)</label>
+                        <input type="number" id="edit-traffic-thresh" class="form-control" placeholder="Global Default"
+                            step="0.1">
+                        <div class="form-text">为空则使用全局</div>
+                    </div>
                 </div>
             </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="saveEdit()">保存配置</button>
+            </div>
         </div>
+    </div>
     </div>
 
     <!-- 2FA Setup Modal -->
@@ -685,7 +929,52 @@
                 document.getElementById('login-section').style.display = 'none';
                 document.getElementById('dashboard-section').style.display = 'block';
                 loadServers();
-                updateUserStatus(); // Check 2FA status
+                // Check auth and setup UI
+                updateUserStatus();
+                // Default Tab
+                switchTab('servers');
+            }
+
+            // --- Tab Logic ---
+            function switchTab(tabName) {
+                // Update Nav
+                document.querySelectorAll('.nav-item-custom').forEach(el => el.classList.remove('active'));
+                // Find index based on tabName to highlight correct nav item
+                const navs = document.querySelectorAll('.nav-item-custom');
+                if (tabName === 'servers') navs[0].classList.add('active');
+                if (tabName === 'detective') navs[1].classList.add('active');
+                if (tabName === 'settings') navs[2].classList.add('active');
+                if (tabName === 'user') navs[3].classList.add('active');
+
+                // Update Content
+                document.querySelectorAll('.section-view').forEach(el => el.classList.remove('active'));
+                document.getElementById('view-' + tabName).classList.add('active');
+
+                // Specific Actions
+                if (tabName === 'detective') {
+                    initDetectiveDate();
+                    loadLogs();
+                }
+                if (tabName === 'settings') {
+                    loadNotifySettings();
+                }
+                if (tabName === 'user') {
+                    updateUserStatus();
+                }
+            }
+
+            function initDetectiveDate() {
+                // Set default time range (Last 24h) if empty
+                if (document.getElementById('log-end').value) return;
+
+                const now = new Date();
+                const yst = new Date(now - 24 * 60 * 60 * 1000);
+                const toLocal = (d) => {
+                    const off = d.getTimezoneOffset() * 60000;
+                    return new Date(d.getTime() - off).toISOString().slice(0, 16);
+                };
+                document.getElementById('log-end').value = toLocal(now);
+                document.getElementById('log-start').value = toLocal(yst);
             }
 
             function backToStep1() {
@@ -764,10 +1053,10 @@
                 showLogin();
             }
 
-            async function changePw() {
-                const oldP = document.getElementById('pw-old').value;
-                const newP = document.getElementById('pw-new').value;
-                const cfmP = document.getElementById('pw-confirm').value;
+            async function pageChangePw() {
+                const oldP = document.getElementById('pg-pw-old').value;
+                const newP = document.getElementById('pg-pw-new').value;
+                const cfmP = document.getElementById('pg-pw-confirm').value;
 
                 if (newP !== cfmP) { alert('两次新密码输入不一致'); return; }
                 if (!oldP || !newP) { alert('请填写完整'); return; }
@@ -784,7 +1073,6 @@
 
                     if (res.ok) {
                         alert('修改成功，请重新登录');
-                        pwModal.hide();
                         logout();
                     } else {
                         const d = await res.json();
@@ -1053,30 +1341,7 @@
             }
 
             // --- Log Detective Logic ---
-            function toggleDetectiveMode() {
-                const list = document.getElementById('server-list');
-                const logs = document.getElementById('log-view');
-
-                if (logs.style.display === 'none') {
-                    list.style.display = 'none';
-                    logs.style.display = 'block';
-                    // Set default time range (Last 24h)
-                    const now = new Date();
-                    const yst = new Date(now - 24 * 60 * 60 * 1000);
-                    // Format: YYYY-MM-DDTHH:mm
-                    const toLocal = (d) => {
-                        const off = d.getTimezoneOffset() * 60000;
-                        return new Date(d.getTime() - off).toISOString().slice(0, 16);
-                    };
-
-                    document.getElementById('log-end').value = toLocal(now);
-                    document.getElementById('log-start').value = toLocal(yst);
-                    loadLogs();
-                } else {
-                    list.style.display = 'block';
-                    logs.style.display = 'none';
-                }
-            }
+            // toggleDetectiveMode Replaced by switchTab('detective')
 
             async function loadLogs() {
                 const startStr = document.getElementById('log-start').value;
