@@ -9,16 +9,79 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        const theme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+    </script>
     <style>
         :root {
             --bg-purple: #7c3aed;
             --bg-purple-light: #8b5cf6;
             --text-primary: #1e293b;
             --bg-card: #ffffff;
+            --bg-body: #f6f7f9;
+        }
+
+        /* Dark Mode Variables */
+        [data-theme="dark"] {
+            --bg-purple: #6d28d9;
+            --bg-purple-light: #7c3aed;
+            --text-primary: #e2e8f0;
+            --bg-card: #1e293b;
+            --bg-body: #0f172a;
+        }
+
+        [data-theme="dark"] body {
+            background-color: var(--bg-body);
+            background-image: none;
+            /* Simplify background for dark mode */
+            color: var(--text-primary);
+        }
+
+        [data-theme="dark"] .sidebar {
+            background-color: #1e293b;
+            border-right: 1px solid #334155;
+        }
+
+        [data-theme="dark"] .nav-item-custom {
+            color: #94a3b8;
+        }
+
+        [data-theme="dark"] .nav-item-custom:hover {
+            background-color: #334155;
+            color: #f8fafc;
+        }
+
+        [data-theme="dark"] .nav-item-custom.active {
+            background-color: rgba(124, 58, 237, 0.2);
+            color: #a78bfa;
+        }
+
+        [data-theme="dark"] .card-custom,
+        [data-theme="dark"] .server-item {
+            background-color: var(--bg-card);
+            color: var(--text-primary);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        [data-theme="dark"] .form-control,
+        [data-theme="dark"] .form-select {
+            background-color: #334155;
+            border-color: #475569;
+            color: #f1f5f9;
+        }
+
+        [data-theme="dark"] .modal-content {
+            background-color: #1e293b;
+            color: #f1f5f9;
+        }
+
+        [data-theme="dark"] .text-muted {
+            color: #cbd5e1 !important;
         }
 
         body {
-            background-color: #f6f7f9;
+            background-color: var(--bg-body);
             background-image:
                 radial-gradient(at 0% 0%, rgba(255, 166, 158, 0.4) 0px, transparent 50%),
                 radial-gradient(at 100% 0%, rgba(134, 239, 172, 0.4) 0px, transparent 50%),
@@ -29,6 +92,7 @@
             color: var(--text-primary);
             height: 100vh;
             margin: 0;
+            transition: background-color 0.3s, color 0.3s;
         }
 
         /* --- Login Screen --- */
@@ -260,12 +324,17 @@
                 </div>
 
                 <div class="mt-auto px-2">
+                    <!-- Dark Mode Toggle -->
+                    <div class="nav-item-custom" onclick="toggleTheme()">
+                        <i class="fas fa-moon"></i> <span id="theme-text">深色模式</span>
+                    </div>
+
+                    <a href="/" class="btn btn-light w-100 btn-sm rounded-pill mt-2 text-muted mb-2">
+                        <i class="fas fa-external-link-alt me-2"></i> 前台首页
+                    </a>
                     <button class="btn btn-outline-danger w-100 btn-sm rounded-pill" onclick="logout()">
                         <i class="fas fa-sign-out-alt me-2"></i> 退出登录
                     </button>
-                    <a href="/" class="btn btn-light w-100 btn-sm rounded-pill mt-2 text-muted">
-                        <i class="fas fa-external-link-alt me-2"></i> 前台首页
-                    </a>
                 </div>
             </div>
 
@@ -448,13 +517,12 @@
 
                                 <div id="2fa-status-area" class="text-center py-4">
                                     <div class="mb-3">
-                                        <i class="fas fa-lock fa-3x text-success"></i>
+                                        <i class="fas fa-shield-alt fa-3x text-primary" id="icon-2fa"></i>
                                     </div>
-                                    <p class="text-muted">当前状态: <span id="lbl-2fa-status" class="fw-bold">检测中...</span>
-                                    </p>
-                                    <button class="btn btn-outline-primary rounded-pill px-4" onclick="setup2FA()">
-                                        <i class="fas fa-cog me-2"></i> 配置 / 重置
-                                    </button>
+                                    <p class="text-muted">当前状态: <span id="lbl-2fa-status" class="fw-bold">...</span></p>
+
+                                    <!-- Dynamic Button Container -->
+                                    <div id="btn-2fa-container"></div>
                                 </div>
                             </div>
                         </div>
@@ -1083,10 +1151,14 @@
             }
 
             // --- User Status Logic ---
+            // --- User Status Logic ---
             async function updateUserStatus() {
                 const token = localStorage.getItem('token');
-                const btn = document.getElementById('btn-2fa-toggle');
-                if (!token || !btn) return;
+                const container = document.getElementById('btn-2fa-container');
+                const lbl = document.getElementById('lbl-2fa-status');
+                const icon = document.getElementById('icon-2fa');
+
+                if (!token) return;
 
                 try {
                     const res = await fetch(API_ROOT + '/user/me', {
@@ -1094,18 +1166,25 @@
                     });
                     if (res.ok) {
                         const data = await res.json();
-
                         // Store Agent Token Globally
                         window.currentAgentToken = data.agent_token;
 
                         if (data.has_2fa) {
-                            btn.innerHTML = '<i class="fas fa-lock text-danger"></i> 关闭两步验证';
-                            btn.className = 'btn btn-outline-danger btn-sm';
-                            btn.onclick = disable2FA;
+                            lbl.innerText = '已启用';
+                            lbl.className = 'fw-bold text-success';
+                            icon.className = 'fas fa-shield-alt fa-3x text-success';
+                            container.innerHTML = `
+                                <button class="btn btn-outline-danger rounded-pill px-4" onclick="disable2FA()">
+                                    <i class="fas fa-lock-open me-2"></i> 关闭两步验证
+                                </button>`;
                         } else {
-                            btn.innerHTML = '<i class="fas fa-shield-alt"></i> 开启两步验证';
-                            btn.className = 'btn btn-outline-info btn-sm';
-                            btn.onclick = setup2FA;
+                            lbl.innerText = '未启用';
+                            lbl.className = 'fw-bold text-warning';
+                            icon.className = 'fas fa-shield-alt fa-3x text-secondary';
+                            container.innerHTML = `
+                                <button class="btn btn-primary rounded-pill px-4" onclick="setup2FA()">
+                                    <i class="fas fa-lock me-2"></i> 开启两步验证
+                                </button>`;
                         }
                     }
                 } catch (e) { console.error('Failed to fetch user status'); }
@@ -1134,8 +1213,8 @@
                     const res = await fetch(API_ROOT + '/server/list');
                     const data = await res.json();
                     currentServers = data.result || [];
-                    // Sort by display_order DESC
-                    currentServers.sort((a, b) => (b.display_order || 0) - (a.display_order || 0));
+                    // Sort by display_order ASC (0, 1, 2...) as requested "顺序排序从0开始"
+                    currentServers.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
                     renderList(currentServers);
                 } catch (e) {
                     console.error(e);
@@ -1420,6 +1499,25 @@
 
             // Init
             checkAuth();
+
+            // Dark Mode Toggle Logic
+            function toggleTheme() {
+                const current = document.documentElement.getAttribute('data-theme');
+                const next = current === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', next);
+                localStorage.setItem('theme', next);
+
+                // Update Text (Optional)
+                document.getElementById('theme-text').innerText = next === 'dark' ? '浅色模式' : '深色模式';
+                const i = document.querySelector('[onclick="toggleTheme()"] i');
+                i.className = next === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+
+            // Init Button Text
+            const curTheme = localStorage.getItem('theme') || 'light';
+            if (document.getElementById('theme-text')) {
+                document.getElementById('theme-text').innerText = curTheme === 'dark' ? '浅色模式' : '深色模式';
+            }
 
         </script>
 </body>
