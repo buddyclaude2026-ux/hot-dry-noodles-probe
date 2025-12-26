@@ -89,21 +89,12 @@ def get_os_info():
         
     return platform.platform()
 
-def get_ping(host):
+def get_tcp_latency(host, port=80):
     try:
-        # Linux/Mac ping -c 1 -W 1 (1 second timeout)
-        # Check OS
-        param = '-n' if platform.system().lower() == 'windows' else '-c'
-        timeout_param = '-w' if platform.system().lower() == 'windows' else '-W'
-        
-        # 1 packet, N second timeout
-        cmd = ['ping', param, '1', timeout_param, str(PING_TIMEOUT), host]
-        
-        # Run
         start = time.time()
-        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        s = socket.create_connection((host, port), timeout=PING_TIMEOUT)
+        s.close()
         end = time.time()
-        
         return round((end - start) * 1000, 1) # ms
     except:
         return 0.0
@@ -157,11 +148,11 @@ def get_status(last_state=None):
         sent_speed = 0
         recv_speed = 0
     
-    # Pings (CT, CU, CM)
-    # Using reliable Backbone IPs to avoid DNS issues/timeouts
-    p_189 = get_ping("202.97.29.133")   # CT Backbone (BJ)
-    p_cu = get_ping("219.158.3.69")     # CU Backbone (Reliable) 
-    p_cm = get_ping("221.179.155.161")  # CM Backbone (BJ)
+    # TCP Latency (TCP Port 53 - DNS)
+    # Using TCP on Public DNS is the most reliable method (Bypasses ICMP block, Stable)
+    p_189 = get_tcp_latency("119.29.29.29", 53)    # Tencent DNS (CT Optimized)
+    p_cu = get_tcp_latency("223.6.6.6", 53)        # Aliyun DNS (CU Optimized)
+    p_cm = get_tcp_latency("223.5.5.5", 53)        # Aliyun DNS (CM Optimized)
     
     # Try Public IP (Cached)
     global CACHED_IP
