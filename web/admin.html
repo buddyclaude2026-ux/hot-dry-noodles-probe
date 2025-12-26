@@ -804,6 +804,14 @@
 
         // showNotifySettings removed (Using Tab)
 
+        function toggleLatencyOptions() {
+            const enabled = document.getElementById('notify-lat-enable').checked;
+            document.getElementById('notify-lat-threshold').disabled = !enabled;
+            document.getElementById('notify-lat-ct').disabled = !enabled;
+            document.getElementById('notify-lat-cu').disabled = !enabled;
+            document.getElementById('notify-lat-cm').disabled = !enabled;
+        }
+
         async function loadNotifySettings() {
             try {
                 const token = localStorage.getItem('token');
@@ -820,11 +828,19 @@
                     document.getElementById('notify-bark-key').value = data.bark_key;
 
                     // Advanced
-                    document.getElementById('notify-lat-enable').checked = data.latency_enable;
+                    // Advanced
+                    const latEnable = document.getElementById('notify-lat-enable');
+                    latEnable.checked = data.latency_enable;
+                    latEnable.onchange = toggleLatencyOptions; // Bind event
+
                     document.getElementById('notify-lat-threshold').value = data.latency_threshold;
                     document.getElementById('notify-lat-ct').checked = data.latency_isp_ct;
                     document.getElementById('notify-lat-cu').checked = data.latency_isp_cu;
                     document.getElementById('notify-lat-cm').checked = data.latency_isp_cm;
+
+                    // Trigger once to set initial state
+                    toggleLatencyOptions();
+
                     document.getElementById('notify-rate-enable').checked = data.traffic_rate_enable;
 
                     // Unit Conversion Logic (Bytes, 1024)
