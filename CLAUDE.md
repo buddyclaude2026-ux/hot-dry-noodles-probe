@@ -64,6 +64,3 @@ Schema 迁移策略：用 `try/except` 包裹 `ALTER TABLE` 语句，直接在 `
 |---|---|---|
 | `heihei-core` | 本地 Dockerfile | FastAPI 面板，端口 8081（仅 127.0.0.1） |
 | `heihei-agent` | 本地 Dockerfile.agent | 监控宿主机，挂载 `/proc` `/sys` |
-| `bark` | finab/bark-server | iOS 推送服务，端口 8080 |
-| `frps` | snowdreamtech/frps | FRP 服务端，内网穿透 |
-| `tunnel` | cloudflare/cloudflared | Cloudflare Tunnel，对外暴露服务 |
