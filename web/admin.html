@@ -269,6 +269,21 @@
             <div class="login-title">管理员登录</div>
             <div class="login-sub">欢迎回来，请登录您的账户</div>
 
+            <!-- Step 0: Setup Wizard (First Run) -->
+            <div id="login-step-setup" style="display:none">
+                <div class="mb-3 text-center">
+                    <i class="fas fa-rocket" style="font-size: 48px; color: #8b5cf6;"></i>
+                    <p class="mt-2 text-muted" style="font-size:13px">首次使用，请设置管理员密码</p>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="setup-password" class="form-control-custom" placeholder="设置新密码（至少6位）" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="setup-password-confirm" class="form-control-custom" placeholder="确认新密码" required>
+                </div>
+                <button type="button" class="btn-login" onclick="handleSetup()">完成设置</button>
+            </div>
+
             <!-- Step 1: User/Pass -->
             <form id="login-step-1" onsubmit="handleLoginStep1(event)">
                 <div class="form-group">
@@ -797,9 +812,66 @@
         });
 
         // ... Existing Auth Logic ...
-        function checkAuth() {
+        async function checkAuth() {
+            try {
+                const res = await fetch(API_ROOT + '/setup/status');
+                const data = await res.json();
+                if (!data.initialized) {
+                    showSetupWizard();
+                    return;
+                }
+            } catch (e) { /* 若请求失败则直接走登录流程 */ }
             const token = localStorage.getItem('token');
             if (token) showDashboard(); else showLogin();
+        }
+
+        function showSetupWizard() {
+            document.getElementById('login-section').style.display = 'flex';
+            document.getElementById('dashboard-section').style.display = 'none';
+            document.getElementById('login-step-setup').style.display = 'block';
+            document.getElementById('login-step-1').style.display = 'none';
+            document.getElementById('login-step-2').style.display = 'none';
+            document.querySelector('.login-title').innerText = '欢迎使用热干面探针';
+            document.querySelector('.login-sub').innerText = '初始化配置';
+        }
+
+        async function handleSetup() {
+            const pw = document.getElementById('setup-password').value;
+            const pw2 = document.getElementById('setup-password-confirm').value;
+            const errDiv = document.getElementById('login-error');
+
+            if (pw.length < 6) {
+                errDiv.innerText = '密码至少6位';
+                errDiv.style.display = 'block';
+                return;
+            }
+            if (pw !== pw2) {
+                errDiv.innerText = '两次密码不一致';
+                errDiv.style.display = 'block';
+                return;
+            }
+
+            try {
+                const res = await fetch(API_ROOT + '/setup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: pw })
+                });
+                if (res.ok) {
+                    document.getElementById('login-step-setup').style.display = 'none';
+                    document.getElementById('login-step-1').style.display = 'block';
+                    document.querySelector('.login-title').innerText = '管理员登录';
+                    document.querySelector('.login-sub').innerText = '密码已设置，请登录';
+                    errDiv.style.display = 'none';
+                } else {
+                    const d = await res.json();
+                    errDiv.innerText = d.detail || '设置失败';
+                    errDiv.style.display = 'block';
+                }
+            } catch (e) {
+                errDiv.innerText = '无法连接服务器';
+                errDiv.style.display = 'block';
+            }
         }
 
         // showNotifySettings removed (Using Tab)
@@ -916,6 +988,9 @@
         function showLogin() {
             document.getElementById('login-section').style.display = 'flex';
             document.getElementById('dashboard-section').style.display = 'none';
+            document.getElementById('login-step-setup').style.display = 'none';
+            document.querySelector('.login-title').innerText = '管理员登录';
+            document.querySelector('.login-sub').innerText = '欢迎回来，请登录您的账户';
             backToStep1(); // Reset to step 1
         }
 
@@ -1320,7 +1395,7 @@
         function updateCmd() {
             const name = document.getElementById('add-name').value || 'MyVPS';
             const cc = document.getElementById('add-cc').value;
-            const host = window.location.origin; // e.g. http://185.186.147.118:8081
+            const host = window.location.origin;
 
             // Fetch token dynamically if possible, or use placeholder if not loaded yet
             const token = window.currentAgentToken || 'HEIHEI_REPORT_VX';

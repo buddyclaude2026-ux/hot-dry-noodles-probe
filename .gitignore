@@ -18,6 +18,12 @@ venv/
 docker-data/
 heihei-data/
 bark/
+frp/
+
+# Personal / Private
+migration_guide.md
+agent_uuid.txt
+gh
 
 # IDE
 .vscode/

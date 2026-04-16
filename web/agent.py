@@ -9,7 +9,7 @@ import socket
 import sys
 
 # --- Configuration ---
-SERVER_URL = "http://185.186.147.118:8081/api/v1/report"
+SERVER_URL = "http://YOUR_SERVER_IP:8081/api/v1/report"
 SECRET_TOKEN = "HEIHEI_REPORT_VX" # Low Privilege Token
 INTERVAL = 2
 PING_TIMEOUT = 3

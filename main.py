@@ -359,11 +359,10 @@ async def init_db():
         except:
              pass 
 
-        # Check if admin exists
+        # Check if admin exists - use random unguessable password, setup wizard will set the real one
         async with db.execute("SELECT username FROM users WHERE username = 'admin'") as cursor:
             if not await cursor.fetchone():
-                print("creating default admin user")
-                await db.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", ("admin", hash_pw("admin")))
+                await db.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", ("admin", hash_pw(secrets.token_hex(32))))
         
         # System Config Table
         await db.execute('''
@@ -399,7 +398,9 @@ async def load_tokens():
                 else:
                     SECRET_TOKEN = secrets.token_hex(16)
                     await db.execute("INSERT INTO system_config (key, value) VALUES (?, ?)", ('admin_token', SECRET_TOKEN))
-                    logger.warning(f"NEW ADMIN TOKEN GENERATED: {SECRET_TOKEN}")
+                    logger.warning("=" * 60)
+                    logger.warning(f"  NEW ADMIN TOKEN GENERATED: {SECRET_TOKEN}")
+                    logger.warning("=" * 60)
 
         # Load Agent Token
         if env_agent:
@@ -414,7 +415,9 @@ async def load_tokens():
                 else:
                     AGENT_TOKEN = secrets.token_hex(16)
                     await db.execute("INSERT INTO system_config (key, value) VALUES (?, ?)", ('agent_token', AGENT_TOKEN))
-                    logger.info(f"Agent Token: {AGENT_TOKEN}")
+                    logger.warning("=" * 60)
+                    logger.warning(f"  NEW AGENT TOKEN GENERATED: {AGENT_TOKEN}")
+                    logger.warning("=" * 60)
         
         
         await db.commit()
@@ -858,6 +861,28 @@ async def login(creds: LoginRequest):
         import traceback
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"detail": f"Login Error: {str(e)}"})
+
+class SetupRequest(BaseModel):
+    password: str
+
+@app.get("/api/v1/setup/status")
+async def setup_status():
+    initialized = system_settings.get("initialized") == "true"
+    return {"initialized": initialized}
+
+@app.post("/api/v1/setup")
+async def setup(req: SetupRequest):
+    if system_settings.get("initialized") == "true":
+        raise HTTPException(status_code=400, detail="Already initialized")
+    if len(req.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE users SET password_hash = ? WHERE username = 'admin'", (hash_pw(req.password),))
+        await db.execute("INSERT OR REPLACE INTO system_config (key, value) VALUES (?, ?)", ("initialized", "true"))
+        await db.commit()
+    system_settings["initialized"] = "true"
+    logger.info("System initialized by setup wizard.")
+    return {"status": "ok"}
 
 @app.post("/api/v1/user/password")
 async def change_password(req: ContentChangePassword, token: str = Header(None, alias="Authorization")):

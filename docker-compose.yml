@@ -12,7 +12,8 @@ services:
       - "127.0.0.1:8081:8081"
     environment:
       - PORT=${PORT:-8081}
-      - AGENT_TOKEN=921a82d269b4268c9b298d8d844caf45
+      - AGENT_TOKEN=${AGENT_TOKEN:-}
+      - ADMIN_TOKEN=${ADMIN_TOKEN:-}
 
   heihei-agent:
     build:
@@ -26,27 +27,4 @@ services:
       - .:/app
       - /:/host/root:ro
       - /etc/os-release:/host/etc/os-release:ro
-    command: python3 web/agent.py --server http://localhost:8081/api/v1/report --token 921a82d269b4268c9b298d8d844caf45 --name 'HostDare_Cssd01'
-  bark:
-    image: finab/bark-server
-    container_name: bark-server
-    restart: always
-    volumes:
-      - ./bark/data:/data
-
-  frps:
-    image: snowdreamtech/frps
-    container_name: frps
-    restart: always
-    network_mode: "host"
-    volumes:
-      - ./frp/frps.ini:/etc/frp/frps.ini
-    command: frps -c /etc/frp/frps.ini
-
-  tunnel:
-    image: cloudflare/cloudflared:latest
-    container_name: cloudflared
-    restart: always
-    command: tunnel run --protocol http2
-    environment:
-      - TUNNEL_TOKEN=eyJhIjoiOTQzN2RmNzQ0NjBhZDkzNGIxY2U5ZTU4ZDZiOTQ0YTgiLCJ0IjoiOThhZjUwMWQtMjg3Mi00N2EyLTg5MDAtN2RhMmQ2NjMzOGFlIiwicyI6IlpHTmtZVEJpTjJJdE5EazFZaTAwWXpjMkxXRmxaalF0TXpKaVptTmhNVFUzTURReiJ9
+    command: python3 web/agent.py --server http://localhost:8081/api/v1/report --db-path /app/heihei.db --name 'MyServer'
