@@ -2,6 +2,20 @@
 
 Clean, lightweight, Python-based server monitoring probe with a beautiful glassmorphism UI.
 
+## 🖼️ 界面展示 (Screenshots)
+| ![主页面](web/screenshots/main.png) | ![机器列表](web/screenshots/servers.png) |
+|:---:|:---:|
+| 主页面 (Dashboard) | 机器列表 (Server List) |
+
+| ![侦探模式](web/screenshots/detective.png) | ![报警设置](web/screenshots/alarms.png) |
+|:---:|:---:|
+| 侦探模式 (Detective Mode) | 报警设置 (Alarm Settings) |
+
+| ![用户中心](web/screenshots/profile.png) | |
+|:---:|:---:|
+| 用户中心 (Profile & 2FA) | |
+
+
 ## 📂 Project Structure
 - `install.sh`: One-click server deployment script.
 - `main.py`: Backend server (FastAPI + WebSocket).
